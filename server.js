@@ -47,18 +47,57 @@ size column = size_sf (numeric) NOT building_sf
 market column = market (Baton Rouge, Lafayette, New Orleans, Northshore)
 Columns: id, source, market, address, city, state, zip, property_type, size_sf, sale_price, price_per_sf, sale_date, published_date, buyer, notes
 
-STRICT SQL RULES:
-1. Return ONLY the raw SQL query — no explanation, no markdown, no backticks, no intro text
-2. Never end the query with a semicolon
-3. Only SELECT statements — never INSERT, UPDATE, DELETE or DROP
-4. For single table questions query only that one table
-5. For UNION ALL cast every column to matching types: ::numeric or ::text, missing columns as NULL::numeric or NULL::text
-6. Never compare text to numbers without casting: column::numeric
-7. For NNN: dealius_lease_comps.lease_structure = 'NNN' or buildout_lease_comps.lease_type ILIKE '%NNN%'
-8. For price per SF: sale_price::numeric / NULLIF(building_sf::numeric, 0)
-9. City searches: ILIKE '%city%'
-10. Always LIMIT 100 unless user asks for counts or totals
-11. For buildout_lease_comps filter lease_rate < 500 to exclude monthly totals
+CRITICAL RULES ABOUT WHICH TABLES TO QUERY:
+
+RULE 1 — ALWAYS search ALL relevant tables by default:
+- For ANY question about sales, prices, or sale comps → query buildout_sale_comps AND dealius_sale_comps AND elifin_sale_comps using UNION ALL
+- For ANY question about leases, lease rates, or lease comps → query buildout_lease_comps AND dealius_lease_comps using UNION ALL
+- For ANY question about "all comps", "total", "how many", "average", "market" → query ALL 5 tables
+- NEVER query just one table unless the user specifically says "in Buildout" or "in Dealius" or "in Elifin"
+
+RULE 2 — UNION ALL type casting — always cast to matching types:
+- All price/rate columns: ::numeric
+- All size/sf columns: ::numeric  
+- All text columns: ::text
+- zip always: zip::text
+- Missing columns in a table: NULL::numeric or NULL::text
+- dealius_sale_comps date is close_date not sale_date — cast as close_date::text AS sale_date
+- elifin_sale_comps size is size_sf not building_sf — cast as size_sf::numeric AS building_sf
+
+RULE 3 — Standard UNION ALL pattern for sale queries:
+SELECT address::text, city::text, state::text, property_type::text, 
+       sale_price::numeric, sale_date::text AS sale_date, 
+       building_sf::numeric, 'buildout' AS source
+FROM buildout_sale_comps WHERE sale_price::numeric > 0
+UNION ALL
+SELECT address::text, city::text, state::text, property_type::text,
+       sale_price::numeric, close_date::text AS sale_date,
+       building_sf::numeric, 'dealius' AS source
+FROM dealius_sale_comps WHERE sale_price::numeric > 0
+UNION ALL
+SELECT address::text, city::text, state::text, property_type::text,
+       sale_price::numeric, sale_date::text AS sale_date,
+       size_sf::numeric AS building_sf, 'elifin' AS source
+FROM elifin_sale_comps WHERE sale_price::numeric > 0
+
+RULE 4 — Standard UNION ALL pattern for lease queries:
+SELECT address::text, city::text, state::text, property_type::text,
+       lease_rate::numeric AS rate, lease_date::text AS lease_date,
+       leased_sf::numeric, 'buildout' AS source
+FROM buildout_lease_comps WHERE lease_rate::numeric > 0 AND lease_rate::numeric < 500
+UNION ALL
+SELECT address::text, city::text, state::text, property_type::text,
+       effective_rate::numeric AS rate, commencement_date::text AS lease_date,
+       leased_sf::numeric, 'dealius' AS source
+FROM dealius_lease_comps WHERE effective_rate::numeric > 0
+
+RULE 5 — Other SQL rules:
+- Return ONLY the raw SQL query — no explanation, no markdown, no backticks, no intro text
+- Never end the query with a semicolon
+- Only SELECT statements — never INSERT, UPDATE, DELETE or DROP
+- For city searches always use ILIKE '%city%'
+- Always LIMIT 100 unless user asks for counts, totals, or averages
+- Never compare text to numbers without casting: column::numeric
 `;
 
 // ── AI CHAT (with conversation memory) ───────────────────────────────────────
@@ -67,24 +106,18 @@ app.post('/chat', async (req, res) => {
   if (!question) return res.status(400).json({ error: 'No question provided' });
 
   try {
-    // Build conversation history for context
     const conversationMessages = [];
-    
-    // Add previous exchanges if they exist
     if (history && history.length > 0) {
       history.forEach(exchange => {
         conversationMessages.push({ role: 'user', content: exchange.question });
         conversationMessages.push({ role: 'assistant', content: exchange.sql });
       });
     }
-    
-    // Add current question
     conversationMessages.push({ role: 'user', content: question });
 
-    // Step 1 — Generate SQL with conversation context
     const sqlResponse = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      max_tokens: 2000,
       system: DB_SCHEMA,
       messages: conversationMessages
     });
@@ -105,7 +138,6 @@ app.post('/chat', async (req, res) => {
 
     console.log('\n--- SQL ---\n', sqlQuery, '\n---\n');
 
-    // Step 2 — Run against Supabase
     const { data, error } = await supabase.rpc('run_query', { query: sqlQuery });
 
     if (error) {
@@ -118,9 +150,13 @@ app.post('/chat', async (req, res) => {
       });
     }
 
-    const recordCount = Array.isArray(data) ? data.length : 0;
+    // Fix record count — unwrap nested array from run_query
+    let actualData = data;
+    if (Array.isArray(data) && data.length === 1 && Array.isArray(data[0])) {
+      actualData = data[0];
+    }
+    const recordCount = Array.isArray(actualData) ? actualData.length : 0;
 
-    // Step 3 — Build answer messages with history
     const answerMessages = [];
     if (history && history.length > 0) {
       history.forEach(exchange => {
@@ -130,10 +166,9 @@ app.post('/chat', async (req, res) => {
     }
     answerMessages.push({
       role: 'user',
-      content: `User asked: "${question}"\n\nDatabase returned ${recordCount} records:\n${JSON.stringify(data, null, 2)}\n\nAnswer in clean plain text. At the end add one line: "Based on X records from the database." where X is ${recordCount}.`
+      content: `User asked: "${question}"\n\nDatabase returned ${recordCount} records:\n${JSON.stringify(actualData, null, 2)}\n\nAnswer in clean plain text. At the end add: "Based on ${recordCount} records from the database."`
     });
 
-    // Step 4 — Generate plain English answer
     const answerResponse = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
@@ -149,7 +184,7 @@ Always end with: "Based on X records from the database." on its own line.`,
     res.json({
       answer: answerResponse.content[0].text,
       sql: sqlQuery,
-      data,
+      data: actualData,
       recordCount
     });
 
@@ -190,19 +225,17 @@ ${JSON.stringify(properties.map(p => ({
 })), null, 2)}
 
 User question: "${question}"
-
-Answer based only on the properties listed above. End with "Based on ${properties.length} properties in the selected area."`
+Answer based only on the properties listed above.`
     });
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: `You are a commercial real estate data assistant.
-The user has selected a geographic area on a map and you have the properties inside that area.
-Answer questions about these specific properties only.
-Answer in clean plain text. No markdown, no ##, no **, no bullet points with -.
-Write like a professional memo. Format dollars as $1,250,000. Format SF as 12,500 SF.
-Keep answers brief and to the point.`,
+Answer questions about the selected geographic area properties only.
+Answer in clean plain text. No markdown, no ##, no **, no bullet points.
+Format dollars as $1,250,000. Format SF as 12,500 SF.
+End with: "Based on ${properties.length} properties in the selected area."`,
       messages
     });
 
@@ -212,10 +245,10 @@ Keep answers brief and to the point.`,
   }
 });
 
-// ── MAP DATA ──────────────────────────────────────────────────────────────────
+// ── MAP DATA — all 5 tables ───────────────────────────────────────────────────
 app.get('/map-data', async (req, res) => {
   try {
-    const [bSales, bLeases] = await Promise.all([
+    const [bSales, bLeases, dSales, dLeases, eSales] = await Promise.all([
       supabase
         .from('buildout_sale_comps')
         .select('id, property_name, address, city, state, property_type, sale_price, sale_date, building_sf, latitude, longitude')
@@ -226,11 +259,29 @@ app.get('/map-data', async (req, res) => {
         .select('id, property_name, address, city, state, property_type, lease_rate, lease_date, building_sf, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null),
+      supabase
+        .from('dealius_sale_comps')
+        .select('id, property_name, address, city, state, property_type, sale_price, close_date, building_sf, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null),
+      supabase
+        .from('dealius_lease_comps')
+        .select('id, property_name, address, city, state, property_type, effective_rate, commencement_date, building_sf, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null),
+      supabase
+        .from('elifin_sale_comps')
+        .select('id, address, city, state, property_type, sale_price, sale_date, size_sf, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null),
     ]);
 
     const properties = [
-      ...(bSales.data || []).map(p => ({ ...p, table: 'buildout_sale_comps', type: 'Sale' })),
-      ...(bLeases.data || []).map(p => ({ ...p, table: 'buildout_lease_comps', type: 'Lease' })),
+      ...(bSales.data  || []).map(p => ({ ...p, table:'buildout_sale_comps',  type:'Sale',  building_sf: p.building_sf })),
+      ...(bLeases.data || []).map(p => ({ ...p, table:'buildout_lease_comps', type:'Lease', building_sf: p.building_sf })),
+      ...(dSales.data  || []).map(p => ({ ...p, table:'dealius_sale_comps',   type:'Sale',  sale_date: p.close_date, building_sf: p.building_sf })),
+      ...(dLeases.data || []).map(p => ({ ...p, table:'dealius_lease_comps',  type:'Lease', lease_rate: p.effective_rate, lease_date: p.commencement_date, building_sf: p.building_sf })),
+      ...(eSales.data  || []).map(p => ({ ...p, table:'elifin_sale_comps',    type:'Sale',  building_sf: p.size_sf })),
     ];
 
     res.json(properties);
@@ -276,11 +327,11 @@ app.get('/api/charts', async (req, res) => {
     const volumeSQL = `
       SELECT property_type, COUNT(*) AS count, ROUND(SUM(sale_price::numeric)) AS total_volume
       FROM (
-        SELECT property_type::text, sale_price::numeric AS sale_price FROM buildout_sale_comps WHERE sale_price::numeric > 0
+        SELECT property_type::text, sale_price::numeric FROM buildout_sale_comps WHERE sale_price::numeric > 0
         UNION ALL
-        SELECT property_type::text, sale_price::numeric AS sale_price FROM dealius_sale_comps WHERE sale_price::numeric > 0
+        SELECT property_type::text, sale_price::numeric FROM dealius_sale_comps WHERE sale_price::numeric > 0
         UNION ALL
-        SELECT property_type::text, sale_price::numeric AS sale_price FROM elifin_sale_comps WHERE sale_price::numeric > 0
+        SELECT property_type::text, sale_price::numeric FROM elifin_sale_comps WHERE sale_price::numeric > 0
       ) t
       WHERE property_type IS NOT NULL AND property_type != ''
       GROUP BY property_type
@@ -289,12 +340,21 @@ app.get('/api/charts', async (req, res) => {
     const leaseTrendSQL = `
       SELECT
         to_char(date_trunc('quarter', lease_date::date), 'YYYY-MM') AS period,
-        ROUND(AVG(lease_rate::numeric)::numeric, 2) AS avg_rate,
+        ROUND(AVG(rate::numeric)::numeric, 2) AS avg_rate,
         COUNT(*) AS count
-      FROM buildout_lease_comps
-      WHERE lease_date IS NOT NULL AND lease_date != ''
-        AND lease_date::date BETWEEN '${dateFrom}' AND '${dateTo}'
-        AND lease_rate::numeric > 0 AND lease_rate::numeric < 500
+      FROM (
+        SELECT lease_date::text AS lease_date, lease_rate::numeric AS rate
+        FROM buildout_lease_comps
+        WHERE lease_date IS NOT NULL AND lease_date != ''
+          AND lease_date::date BETWEEN '${dateFrom}' AND '${dateTo}'
+          AND lease_rate::numeric > 0 AND lease_rate::numeric < 500
+        UNION ALL
+        SELECT commencement_date::text AS lease_date, effective_rate::numeric AS rate
+        FROM dealius_lease_comps
+        WHERE commencement_date IS NOT NULL AND commencement_date != ''
+          AND commencement_date::date BETWEEN '${dateFrom}' AND '${dateTo}'
+          AND effective_rate::numeric > 0
+      ) t
       GROUP BY period
       ORDER BY period`;
 
@@ -304,13 +364,14 @@ app.get('/api/charts', async (req, res) => {
         ROUND(AVG(sale_price::numeric / NULLIF(building_sf::numeric, 0))::numeric, 2) AS avg_ppsf,
         COUNT(*) AS count
       FROM (
-        SELECT city::text, sale_price::numeric AS sale_price, building_sf::numeric AS building_sf
-        FROM buildout_sale_comps
-        WHERE sale_price::numeric > 0 AND building_sf::numeric > 0
+        SELECT city::text, sale_price::numeric, building_sf::numeric
+        FROM buildout_sale_comps WHERE sale_price::numeric > 0 AND building_sf::numeric > 0
         UNION ALL
-        SELECT city::text, sale_price::numeric AS sale_price, building_sf::numeric AS building_sf
-        FROM dealius_sale_comps
-        WHERE sale_price::numeric > 0 AND building_sf::numeric > 0
+        SELECT city::text, sale_price::numeric, building_sf::numeric
+        FROM dealius_sale_comps WHERE sale_price::numeric > 0 AND building_sf::numeric > 0
+        UNION ALL
+        SELECT city::text, sale_price::numeric, size_sf::numeric AS building_sf
+        FROM elifin_sale_comps WHERE sale_price::numeric > 0 AND size_sf::numeric > 0
       ) t
       WHERE city IS NOT NULL AND city != ''
       GROUP BY city
@@ -379,35 +440,38 @@ app.get('/api/recent', async (req, res) => {
     const sql = `
       SELECT * FROM (
         SELECT
-          'Sale' AS comp_type,
-          'Buildout' AS source_name,
+          'Sale' AS comp_type, 'Buildout' AS source_name,
           COALESCE(property_name, address) AS name,
-          address, city, state,
-          property_type,
-          sale_price::numeric AS price,
-          NULL::numeric AS rate,
+          address, city, state, property_type,
+          sale_price::numeric AS price, NULL::numeric AS rate,
           sale_date AS date
         FROM buildout_sale_comps
         WHERE sale_date IS NOT NULL AND sale_date != ''
-        ORDER BY sale_date DESC
-        LIMIT 5
+        ORDER BY sale_date DESC LIMIT 4
       ) a
       UNION ALL
       SELECT * FROM (
         SELECT
-          'Lease' AS comp_type,
-          'Buildout' AS source_name,
+          'Sale' AS comp_type, 'Dealius' AS source_name,
           COALESCE(property_name, address) AS name,
-          address, city, state,
-          property_type,
-          NULL::numeric AS price,
-          lease_rate::numeric AS rate,
+          address, city, state, property_type,
+          sale_price::numeric AS price, NULL::numeric AS rate,
+          close_date AS date
+        FROM dealius_sale_comps
+        WHERE close_date IS NOT NULL AND close_date != ''
+        ORDER BY close_date DESC LIMIT 3
+      ) b
+      UNION ALL
+      SELECT * FROM (
+        SELECT
+          'Lease' AS comp_type, 'Buildout' AS source_name,
+          address AS name, address, city, state, property_type,
+          NULL::numeric AS price, lease_rate::numeric AS rate,
           lease_date AS date
         FROM buildout_lease_comps
         WHERE lease_date IS NOT NULL AND lease_date != ''
-        ORDER BY lease_date DESC
-        LIMIT 5
-      ) b
+        ORDER BY lease_date DESC LIMIT 3
+      ) c
       ORDER BY date DESC
       LIMIT 10`;
 
