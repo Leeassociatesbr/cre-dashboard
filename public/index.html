@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lee & Associates — CRE Dashboard</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAhAMJBWNdKFd_yv2N3HYtI-54Tg0nz1SU&libraries=drawing,geometry,visualization,places"></script>
+    <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; background:#f4f6f9; color:#333; overflow:hidden; }
+
+        /* HEADER */
+        .header {
+            background:#1a3c5e; color:white;
+            padding:12px 20px;
+            display:flex; align-items:center; justify-content:space-between;
+            height:52px;
+        }
+        .header h1 { font-size:18px; letter-spacing:.5px; }
+        .header span { font-size:12px; opacity:.7; }
+
+        /* LAYOUT */
+        .container { display:flex; height:calc(100vh - 52px); }
+
+        /* LEFT PANEL */
+        .left-panel {
+            width:380px; min-width:380px;
+            background:white;
+            display:flex; flex-direction:column;
+            border-right:1px solid #e0e0e0;
+            overflow:hidden;
+        }
+
+        /* TABS */
+        .tabs { display:flex; border-bottom:2px solid #e0e0e0; flex-shrink:0; }
+        .tab {
+            flex:1; padding:10px 4px;
+            text-align:center; cursor:pointer;
+            font-size:11px; font-weight:600; color:#888;
+            border-bottom:3px solid transparent;
+            transition:all .2s; white-space:nowrap;
+        }
+        .tab.active { color:#1a3c5e; border-bottom-color:#1a3c5e; }
+
+        /* PANEL CONTENT */
+        .panel-content { flex:1; overflow-y:auto; display:none; }
+        .panel-content.active { display:flex; flex-direction:column; }
+
+        /* CHAT */
+        .chat-messages {
+            flex:1; overflow-y:auto;
+            padding:14px;
+            display:flex; flex-direction:column; gap:10px;
+            min-height:0;
+        }
+        .message {
+            padding:10px 13px; border-radius:8px;
+            font-size:13px; line-height:1.6;
+            max-width:92%; white-space:pre-wrap; word-wrap:break-word;
+        }
+        .message.user { background:#1a3c5e; color:white; align-self:flex-end; border-radius:8px 8px 2px 8px; }
+        .message.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #e0e0e0; border-radius:8px 8px 8px 2px; }
+        .message.loading { background:#f0f4f8; color:#999; align-self:flex-start; font-style:italic; border:1px solid #e0e0e0; }
+
+        .quick-questions { padding:8px 12px; border-top:1px solid #f0f0f0; background:#fafafa; flex-shrink:0; }
+        .quick-questions p { font-size:10px; color:#aaa; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; }
+        .quick-btns { display:flex; flex-wrap:wrap; gap:4px; }
+        .quick-btn {
+            padding:4px 8px; background:white; border:1px solid #ddd;
+            border-radius:4px; font-size:11px; cursor:pointer; color:#555; transition:all .15s;
+        }
+        .quick-btn:hover { background:#e0e8f0; border-color:#1a3c5e; color:#1a3c5e; }
+
+        .chat-input-area { padding:10px 12px; border-top:1px solid #e0e0e0; display:flex; gap:8px; flex-shrink:0; }
+        .chat-input-area input {
+            flex:1; padding:9px 12px; border:1px solid #ddd;
+            border-radius:6px; font-size:13px; outline:none;
+        }
+        .chat-input-area input:focus { border-color:#1a3c5e; }
+        .chat-input-area button {
+            padding:9px 16px; background:#1a3c5e; color:white;
+            border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600;
+        }
+        .chat-input-area button:hover { background:#24527a; }
+        .chat-input-area button:disabled { background:#aaa; cursor:not-allowed; }
+
+        /* CHARTS TAB */
+        .charts-container { padding:14px; display:flex; flex-direction:column; gap:16px; }
+        .chart-card { background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:14px; }
+        .chart-card h4 { font-size:12px; font-weight:700; color:#1a3c5e; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
+        .chart-filters { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+        .date-filter { padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:11px; }
+        .filter-btn {
+            padding:4px 10px; background:white; border:1px solid #ddd;
+            border-radius:4px; font-size:11px; cursor:pointer; color:#555;
+        }
+        .filter-btn.active { background:#1a3c5e; color:white; border-color:#1a3c5e; }
+        canvas { max-height:180px; }
+
+        /* MARKETS TAB */
+        .markets-container { padding:14px; display:flex; flex-direction:column; gap:10px; }
+        .market-card {
+            background:#f8f9fa; border:1px solid #e0e0e0;
+            border-radius:8px; padding:12px; cursor:pointer; transition:all .2s;
+        }
+        .market-card:hover { border-color:#1a3c5e; background:#f0f4f8; }
+        .market-card h4 { font-size:14px; font-weight:700; color:#1a3c5e; margin-bottom:8px; }
+        .market-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .market-stat { font-size:12px; }
+        .market-stat .val { font-weight:700; color:#333; }
+        .market-stat .lbl { color:#888; font-size:11px; }
+
+        /* RECENT TAB */
+        .recent-container { padding:0; }
+        .recent-header { padding:12px 14px; font-size:11px; font-weight:700; color:#888; text-transform:uppercase; background:#fafafa; border-bottom:1px solid #eee; }
+        .recent-item { padding:12px 14px; border-bottom:1px solid #f0f0f0; transition:background .15s; }
+        .recent-item:hover { background:#f8f9fa; }
+        .recent-item .ri-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px; }
+        .recent-item .ri-name { font-size:13px; font-weight:600; color:#333; }
+        .recent-item .ri-price { font-size:13px; font-weight:700; color:#1a3c5e; }
+        .recent-item .ri-meta { font-size:11px; color:#888; }
+        .recent-item .ri-badge {
+            display:inline-block; padding:2px 6px; border-radius:3px;
+            font-size:10px; font-weight:700; margin-right:4px;
+        }
+        .ri-badge.sale { background:#e8f0f8; color:#1a3c5e; }
+        .ri-badge.lease { background:#fff3e0; color:#e8a020; }
+
+        /* MAP */
+        .map-section { flex:1; position:relative; overflow:hidden; }
+        #map { width:100%; height:100%; }
+
+        /* MAP CONTROLS */
+        .map-top-bar {
+            position:absolute; top:10px; left:10px; right:10px;
+            z-index:10; display:flex; gap:6px; flex-wrap:wrap; align-items:center;
+        }
+        .map-search-box {
+            flex:1; min-width:180px; max-width:280px;
+            padding:7px 12px; border:2px solid #ddd; border-radius:6px;
+            font-size:13px; outline:none; background:white;
+            box-shadow:0 2px 4px rgba(0,0,0,.1);
+        }
+        .map-search-box:focus { border-color:#1a3c5e; }
+        .map-btn {
+            padding:7px 12px; background:white; border:2px solid #ddd;
+            border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;
+            box-shadow:0 2px 4px rgba(0,0,0,.1); transition:all .2s; white-space:nowrap;
+        }
+        .map-btn.active { border-color:#1a3c5e; color:#1a3c5e; background:#f0f4f8; }
+        .map-btn.draw-active { border-color:#e8a020; color:#e8a020; background:#fff8ec; }
+        .map-btn.danger { border-color:#c0392b; color:#c0392b; }
+
+        /* MAP LEGEND */
+        .map-legend {
+            position:absolute; bottom:22px; left:10px;
+            background:white; border-radius:8px; padding:10px 14px;
+            box-shadow:0 2px 8px rgba(0,0,0,.15); font-size:11px; z-index:10;
+        }
+        .legend-section { margin-bottom:6px; }
+        .legend-section:last-child { margin-bottom:0; }
+        .legend-title { font-size:10px; color:#888; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+        .legend-item { display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+        .legend-item:last-child { margin-bottom:0; }
+        .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+        /* MAP MODE BUTTONS */
+        .map-mode-bar {
+            position:absolute; bottom:22px; right:10px;
+            z-index:10; display:flex; gap:6px; flex-direction:column; align-items:flex-end;
+        }
+        .mode-btn {
+            padding:6px 12px; background:white; border:2px solid #ddd;
+            border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;
+            box-shadow:0 2px 4px rgba(0,0,0,.1); transition:all .2s;
+        }
+        .mode-btn.active { border-color:#1a3c5e; color:#1a3c5e; background:#f0f4f8; }
+
+        /* DRAW BANNER */
+        .draw-banner {
+            position:absolute; top:52px; left:50%; transform:translateX(-50%);
+            background:#e8a020; color:white; padding:7px 18px;
+            border-radius:20px; font-size:12px; font-weight:600;
+            z-index:15; box-shadow:0 2px 8px rgba(0,0,0,.2); pointer-events:none;
+        }
+        .draw-banner.hidden { display:none; }
+
+        /* SELECTION PANEL */
+        .sel-panel {
+            position:absolute; top:54px; right:10px;
+            width:290px; background:white; border-radius:10px;
+            box-shadow:0 4px 20px rgba(0,0,0,.2); z-index:20;
+            max-height:calc(100vh - 120px);
+            display:flex; flex-direction:column; overflow:hidden;
+        }
+        .sel-panel.hidden { display:none; }
+        .sel-head {
+            background:#1a3c5e; color:white; padding:10px 14px;
+            display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
+        }
+        .sel-head h3 { font-size:13px; }
+        .sel-close { background:none; border:none; color:white; font-size:18px; cursor:pointer; opacity:.8; line-height:1; }
+        .sel-close:hover { opacity:1; }
+
+        /* SELECTION TABS */
+        .sel-tabs { display:flex; border-bottom:1px solid #eee; flex-shrink:0; }
+        .sel-tab {
+            flex:1; padding:8px; text-align:center; cursor:pointer;
+            font-size:11px; font-weight:600; color:#888;
+            border-bottom:2px solid transparent; transition:all .2s;
+        }
+        .sel-tab.active { color:#1a3c5e; border-bottom-color:#1a3c5e; }
+
+        /* SELECTION STATS */
+        .sel-stats-pane { overflow-y:auto; flex:1; }
+        .sel-stats-pane.hidden { display:none; }
+        .sel-stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px; }
+        .sel-stat { background:#f0f4f8; border-radius:6px; padding:10px; text-align:center; }
+        .sel-stat .num { font-size:16px; font-weight:700; color:#1a3c5e; }
+        .sel-stat .lbl { font-size:10px; color:#888; margin-top:2px; text-transform:uppercase; }
+        .sel-type-list { padding:0 12px 10px; }
+        .sel-type-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f5f5f5; font-size:12px; }
+        .sel-type-row:last-child { border:none; }
+        .sel-type-val { font-weight:600; color:#1a3c5e; }
+
+        /* SELECTION ACTIONS */
+        .sel-actions { padding:10px 12px; border-top:1px solid #eee; display:flex; gap:6px; flex-shrink:0; }
+        .sel-action-btn {
+            flex:1; padding:7px; border:none; border-radius:6px;
+            font-size:11px; font-weight:600; cursor:pointer; transition:background .2s;
+        }
+        .sel-action-btn.primary { background:#1a3c5e; color:white; }
+        .sel-action-btn.primary:hover { background:#24527a; }
+        .sel-action-btn.secondary { background:#f0f4f8; color:#1a3c5e; border:1px solid #ddd; }
+        .sel-action-btn.secondary:hover { background:#e0e8f0; }
+
+        /* SELECTION LIST */
+        .sel-list-pane { overflow-y:auto; flex:1; }
+        .sel-list-pane.hidden { display:none; }
+        .sel-list-header { padding:7px 12px; font-size:10px; font-weight:700; color:#888; text-transform:uppercase; background:#fafafa; border-bottom:1px solid #eee; position:sticky; top:0; }
+        .sel-item { padding:9px 12px; border-bottom:1px solid #f5f5f5; cursor:pointer; transition:background .15s; }
+        .sel-item:hover { background:#f0f4f8; }
+        .sel-item .s-addr { font-size:12px; font-weight:600; color:#333; margin-bottom:2px; }
+        .sel-item .s-meta { font-size:11px; color:#888; display:flex; justify-content:space-between; }
+        .sel-item .s-price { color:#1a3c5e; font-weight:600; }
+
+        /* SELECTION AI CHAT */
+        .sel-chat-pane { display:flex; flex-direction:column; flex:1; overflow:hidden; }
+        .sel-chat-pane.hidden { display:none; }
+        .sel-chat-msgs { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+        .sel-msg { padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.5; max-width:95%; white-space:pre-wrap; }
+        .sel-msg.user { background:#1a3c5e; color:white; align-self:flex-end; }
+        .sel-msg.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #eee; }
+        .sel-msg.loading { background:#f0f4f8; color:#999; align-self:flex-start; font-style:italic; }
+        .sel-chat-input { padding:8px 10px; border-top:1px solid #eee; display:flex; gap:6px; flex-shrink:0; }
+        .sel-chat-input input { flex:1; padding:7px 10px; border:1px solid #ddd; border-radius:5px; font-size:12px; outline:none; }
+        .sel-chat-input input:focus { border-color:#1a3c5e; }
+        .sel-chat-input button { padding:7px 12px; background:#1a3c5e; color:white; border:none; border-radius:5px; font-size:12px; cursor:pointer; font-weight:600; }
+
+        /* COMPARE MODAL */
+        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100; display:flex; align-items:center; justify-content:center; }
+        .modal-overlay.hidden { display:none; }
+        .modal { background:white; border-radius:12px; padding:24px; width:700px; max-width:95vw; max-height:85vh; overflow-y:auto; }
+        .modal h3 { color:#1a3c5e; font-size:16px; margin-bottom:16px; }
+        .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .compare-col { border:1px solid #e0e0e0; border-radius:8px; overflow:hidden; }
+        .compare-col-head { background:#1a3c5e; color:white; padding:10px 14px; font-size:13px; font-weight:600; }
+        .compare-row { display:flex; justify-content:space-between; padding:8px 14px; border-bottom:1px solid #f0f0f0; font-size:12px; }
+        .compare-row:last-child { border:none; }
+        .compare-row .lbl { color:#888; }
+        .compare-row .val { font-weight:600; color:#333; }
+        .compare-row .val.highlight { color:#1a3c5e; }
+        .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
+        .modal-btn { padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
+        .modal-btn.primary { background:#1a3c5e; color:white; }
+        .modal-btn.secondary { background:#f0f4f8; color:#333; border:1px solid #ddd; }
+
+        .hidden { display:none !important; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Lee & Associates — CRE Dashboard</h1>
+    <span id="last-updated">Loading...</span>
+</div>
+
+<div class="container">
+
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('chat',this)">💬 Chat</div>
+            <div class="tab" onclick="showTab('charts',this)">📈 Charts</div>
+            <div class="tab" onclick="showTab('markets',this)">🏙️ Markets</div>
+            <div class="tab" onclick="showTab('recent',this)">🕐 Recent</div>
+        </div>
+
+        <!-- CHAT TAB -->
+        <div id="tab-chat" class="panel-content active" style="display:flex;">
+            <div class="chat-messages" id="chat-messages">
+                <div class="message ai">👋 Hi! I'm your AI assistant. I have access to all your comp data across Buildout, Dealius, and your own records. Ask me anything — property searches, market stats, deal history, and more.</div>
+            </div>
+            <div class="quick-questions">
+                <p>Quick questions</p>
+                <div class="quick-btns">
+                    <button class="quick-btn" onclick="askQuestion('What are the top 5 highest sale prices in Baton Rouge?')">Top BR sales</button>
+                    <button class="quick-btn" onclick="askQuestion('Show me all industrial properties sold in Lafayette')">Lafayette industrial</button>
+                    <button class="quick-btn" onclick="askQuestion('What is the average sale price per SF for office properties?')">Avg office PPSF</button>
+                    <button class="quick-btn" onclick="askQuestion('Show me all NNN leases in New Orleans')">NOLA NNN leases</button>
+                    <button class="quick-btn" onclick="askQuestion('What retail properties sold for over $1 million?')">Retail $1M+</button>
+                    <button class="quick-btn" onclick="askQuestion('Show me the most recent 10 lease comps')">Recent leases</button>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask anything about your CRE data..." onkeypress="if(event.key==='Enter')sendMessage()"/>
+                <button id="send-btn" onclick="sendMessage()">Ask</button>
+            </div>
+        </div>
+
+        <!-- CHARTS TAB -->
+        <div id="tab-charts" class="panel-content">
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h4>📈 Price Trend Over Time</h4>
+                    <div class="chart-filters">
+                        <input type="date" class="date-filter" id="chart-from" value="2022-01-01">
+                        <span style="font-size:11px;color:#888;line-height:2">to</span>
+                        <input type="date" class="date-filter" id="chart-to">
+                        <button class="filter-btn active" onclick="loadCharts()">Apply</button>
+                    </div>
+                    <canvas id="chart-price-trend"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>🏢 Volume by Property Type</h4>
+                    <canvas id="chart-volume"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>📋 Lease Rate Trend</h4>
+                    <canvas id="chart-lease-trend"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h4>💰 Avg Price/SF by City</h4>
+                    <canvas id="chart-ppsf"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- MARKETS TAB -->
+        <div id="tab-markets" class="panel-content">
+            <div class="markets-container" id="markets-list">
+                <div style="padding:20px;text-align:center;color:#888;font-size:13px;">Loading market data...</div>
+            </div>
+        </div>
+
+        <!-- RECENT TAB -->
+        <div id="tab-recent" class="panel-content">
+            <div class="recent-container">
+                <div class="recent-header">Last 10 Comps Added</div>
+                <div id="recent-list">
+                    <div style="padding:20px;text-align:center;color:#888;font-size:13px;">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-section">
+        <div class="map-top-bar">
+            <input type="text" class="map-search-box" id="map-search" placeholder="🔍 Search address..."/>
+            <button class="map-btn active" id="btn-all" onclick="filterMap('all',this)">All</button>
+            <button class="map-btn" id="btn-sale" onclick="filterMap('Sale',this)">Sales</button>
+            <button class="map-btn" id="btn-lease" onclick="filterMap('Lease',this)">Leases</button>
+            <div style="width:1px;background:#ddd;margin:0 2px"></div>
+            <button class="map-btn" id="btn-polygon" onclick="startDraw('polygon')">✏️ Polygon</button>
+            <button class="map-btn" id="btn-rect" onclick="startDraw('rectangle')">⬜ Rect</button>
+            <button class="map-btn" id="btn-circle" onclick="startDraw('circle')">⭕ Circle</button>
+            <button class="map-btn danger hidden" id="btn-clear" onclick="clearSelection()">✕ Clear</button>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="draw-banner hidden" id="draw-banner">Drawing mode — draw your shape on the map</div>
+
+        <!-- MAP MODE BUTTONS -->
+        <div class="map-mode-bar">
+            <button class="mode-btn active" id="mode-pins" onclick="setMapMode('pins')">📍 Pins</button>
+            <button class="mode-btn" id="mode-heat" onclick="setMapMode('heat')">🌡️ Heatmap</button>
+        </div>
+
+        <!-- LEGEND -->
+        <div class="map-legend" id="map-legend">
+            <div class="legend-section">
+                <div class="legend-title">Transaction Type</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#1a3c5e"></div> Sale</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e8a020"></div> Lease</div>
+            </div>
+            <div class="legend-section" id="type-legend"></div>
+        </div>
+
+        <!-- SELECTION PANEL -->
+        <div class="sel-panel hidden" id="sel-panel">
+            <div class="sel-head">
+                <h3 id="sel-title">Selected Area</h3>
+                <button class="sel-close" onclick="clearSelection()">×</button>
+            </div>
+            <div class="sel-tabs">
+                <div class="sel-tab active" onclick="showSelTab('stats',this)">Stats</div>
+                <div class="sel-tab" onclick="showSelTab('list',this)">Properties</div>
+                <div class="sel-tab" onclick="showSelTab('chat',this)">💬 Ask AI</div>
+            </div>
+            <!-- Stats pane -->
+            <div class="sel-stats-pane" id="sel-stats-pane">
+                <div class="sel-stat-grid">
+                    <div class="sel-stat"><div class="num" id="sel-count">0</div><div class="lbl">Properties</div></div>
+                    <div class="sel-stat"><div class="num" id="sel-volume">$0</div><div class="lbl">Total Volume</div></div>
+                    <div class="sel-stat"><div class="num" id="sel-avg">$0</div><div class="lbl">Avg Sale Price</div></div>
+                    <div class="sel-stat"><div class="num" id="sel-ppsf">N/A</div><div class="lbl">Avg Price/SF</div></div>
+                </div>
+                <div class="sel-type-list" id="sel-type-breakdown"></div>
+            </div>
+            <!-- List pane -->
+            <div class="sel-list-pane hidden" id="sel-list-pane">
+                <div class="sel-list-header">Properties in Selection</div>
+                <div id="sel-list"></div>
+            </div>
+            <!-- AI Chat pane -->
+            <div class="sel-chat-pane hidden" id="sel-chat-pane">
+                <div class="sel-chat-msgs" id="sel-chat-msgs">
+                    <div class="sel-msg ai">Ask me anything about the properties in this area.</div>
+                </div>
+                <div class="sel-chat-input">
+                    <input type="text" id="sel-chat-input" placeholder="Ask about this area..." onkeypress="if(event.key==='Enter')sendAreaChat()"/>
+                    <button onclick="sendAreaChat()">Ask</button>
+                </div>
+            </div>
+            <!-- Actions -->
+            <div class="sel-actions">
+                <button class="sel-action-btn primary" onclick="exportCSV()">⬇ Export CSV</button>
+                <button class="sel-action-btn secondary" onclick="generatePDF()">📄 PDF Report</button>
+                <button class="sel-action-btn secondary" onclick="openCompare()">⚖️ Compare</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- COMPARE MODAL -->
+<div class="modal-overlay hidden" id="compare-modal">
+    <div class="modal">
+        <h3>⚖️ Side by Side Comparison</h3>
+        <p style="font-size:12px;color:#888;margin-bottom:12px;">Select two properties from the list to compare</p>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+            <select id="compare-a" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                <option value="">Select Property A</option>
+            </select>
+            <select id="compare-b" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
+                <option value="">Select Property B</option>
+            </select>
+            <button class="modal-btn primary" onclick="runCompare()">Compare</button>
+        </div>
+        <div id="compare-result"></div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" onclick="closeCompare()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── GLOBALS ───────────────────────────────────────────────────────────────────
+let map, clusterer, heatmap, infoWindow, drawingManager, searchBox;
+let allProperties = [];
+let currentFilter = 'all';
+let currentShape = null;
+let selectedProperties = [];
+let mapMode = 'pins';
+let charts = {};
+
+function typeColor(type) {
+    if (!type) return '#95a5a6';
+    const t = type.toLowerCase();
+    if (t.includes('industrial')) return '#e74c3c';
+    if (t.includes('office'))     return '#3498db';
+    if (t.includes('retail'))     return '#2ecc71';
+    if (t.includes('multi'))      return '#9b59b6';
+    return '#95a5a6';
+}
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────────
+function initMap() {
+    map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat:30.45, lng:-91.15 }, zoom:8,
+        styles:[
+            {featureType:'poi',stylers:[{visibility:'off'}]},
+            {featureType:'transit',stylers:[{visibility:'off'}]}
+        ]
+    });
+    infoWindow = new google.maps.InfoWindow();
+
+    // Address search
+    const input = document.getElementById('map-search');
+    searchBox = new google.maps.places.SearchBox(input);
+    map.addListener('bounds_changed', () => searchBox.setBounds(map.getBounds()));
+    searchBox.addListener('places_changed', () => {
+        const places = searchBox.getPlaces();
+        if (!places.length) return;
+        const bounds = new google.maps.LatLngBounds();
+        places.forEach(p => {
+            if (p.geometry.viewport) bounds.union(p.geometry.viewport);
+            else bounds.extend(p.geometry.location);
+        });
+        map.fitBounds(bounds);
+    });
+
+    // Drawing manager
+    drawingManager = new google.maps.drawing.DrawingManager({
+        drawingControl: false,
+        polygonOptions:   { fillColor:'#1a3c5e', fillOpacity:.15, strokeColor:'#1a3c5e', strokeWeight:2 },
+        rectangleOptions: { fillColor:'#1a3c5e', fillOpacity:.15, strokeColor:'#1a3c5e', strokeWeight:2 },
+        circleOptions:    { fillColor:'#1a3c5e', fillOpacity:.15, strokeColor:'#1a3c5e', strokeWeight:2 },
+    });
+    drawingManager.setMap(map);
+    google.maps.event.addListener(drawingManager, 'overlaycomplete', e => {
+        stopDraw();
+        if (currentShape) currentShape.setMap(null);
+        currentShape = e.overlay;
+        analyzeSelection(e.type, e.overlay);
+        document.getElementById('btn-clear').classList.remove('hidden');
+    });
+
+    loadMapData();
+    buildTypeLegend();
+}
+
+// ── MAP DATA ──────────────────────────────────────────────────────────────────
+async function loadMapData() {
+    try {
+        const res = await fetch('/map-data');
+        allProperties = await res.json();
+        renderMarkers(allProperties);
+        document.getElementById('last-updated').textContent = `${allProperties.length} properties loaded`;
+    } catch(e) {
+        document.getElementById('last-updated').textContent = 'Load error';
+    }
+}
+
+// ── RENDER MARKERS ────────────────────────────────────────────────────────────
+function renderMarkers(props) {
+    if (clusterer) clusterer.clearMarkers();
+    if (heatmap) heatmap.setMap(null);
+
+    if (mapMode === 'heat') {
+        const pts = props
+            .filter(p => p.latitude && p.longitude)
+            .map(p => new google.maps.LatLng(parseFloat(p.latitude), parseFloat(p.longitude)));
+        heatmap = new google.maps.visualization.HeatmapLayer({ data:pts, radius:25 });
+        heatmap.setMap(map);
+        return;
+    }
+
+    const markers = props
+        .filter(p => p.latitude && p.longitude)
+        .map(p => {
+            const color = typeColor(p.property_type);
+            const marker = new google.maps.Marker({
+                position: { lat:parseFloat(p.latitude), lng:parseFloat(p.longitude) },
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: p.type === 'Sale' ? 7 : 6,
+                    fillColor: color,
+                    fillOpacity: .85,
+                    strokeColor: p.type === 'Sale' ? 'white' : '#555',
+                    strokeWeight: p.type === 'Sale' ? 1.5 : 1,
+                }
+            });
+            marker.addListener('click', () => {
+                const price = p.type === 'Sale'
+                    ? (p.sale_price ? '$'+Number(p.sale_price).toLocaleString() : 'N/A')
+                    : (p.lease_rate ? '$'+Number(p.lease_rate).toFixed(2)+'/SF/yr' : 'N/A');
+                const date = p.type === 'Sale' ? p.sale_date : p.lease_date;
+                infoWindow.setContent(`
+                    <div style="font-size:13px;min-width:200px;max-width:260px">
+                        <div style="font-weight:700;color:#1a3c5e;margin-bottom:5px">${p.property_name||p.address}</div>
+                        <div style="color:#555">${p.address}, ${p.city}, ${p.state}</div>
+                        <div style="color:#555">Type: <b>${p.property_type||'N/A'}</b></div>
+                        <div style="font-size:15px;font-weight:700;color:#1a3c5e;margin-top:5px">${p.type==='Sale'?'Sale: ':'Rate: '}${price}</div>
+                        <div style="color:#888;font-size:12px">Date: ${date||'N/A'}</div>
+                        <button onclick="addToCompare(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                            style="margin-top:8px;padding:4px 10px;background:#1a3c5e;color:white;border:none;border-radius:4px;font-size:11px;cursor:pointer">
+                            + Add to Compare
+                        </button>
+                    </div>`);
+                infoWindow.open(map, marker);
+            });
+            return marker;
+        });
+
+    clusterer = new markerClusterer.MarkerClusterer({
+        map, markers,
+        algorithm: new markerClusterer.SuperClusterAlgorithm({ 
+            radius: 40,
+            maxZoom: 14,
+        }),
+        renderer: {
+            render({ count, position }) {
+                return new google.maps.Marker({
+                    position,
+                    label: {
+                        text: String(count),
+                        color: 'white',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                    },
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: count > 10 ? 22 : 16,
+                        fillColor: '#1a3c5e',
+                        fillOpacity: 0.9,
+                        strokeColor: 'white',
+                        strokeWeight: 2,
+                    },
+                    zIndex: 1000,
+                });
+            }
+        }
+    });
+}
+
+// ── MAP MODE ──────────────────────────────────────────────────────────────────
+function setMapMode(mode) {
+    mapMode = mode;
+    document.getElementById('mode-pins').classList.toggle('active', mode==='pins');
+    document.getElementById('mode-heat').classList.toggle('active', mode==='heat');
+    document.getElementById('map-legend').style.display = mode==='pins' ? '' : 'none';
+    const filtered = currentFilter==='all' ? allProperties : allProperties.filter(p=>p.type===currentFilter);
+    renderMarkers(filtered);
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function filterMap(type, btn) {
+    currentFilter = type;
+    ['btn-all','btn-sale','btn-lease'].forEach(id => document.getElementById(id).classList.remove('active'));
+    btn.classList.add('active');
+    const filtered = type==='all' ? allProperties : allProperties.filter(p=>p.type===type);
+    renderMarkers(filtered);
+    if (currentShape) clearSelection();
+}
+
+// ── TYPE LEGEND ───────────────────────────────────────────────────────────────
+function buildTypeLegend() {
+    const types = [
+        ['Industrial',  '#e74c3c'],
+        ['Office',      '#3498db'],
+        ['Retail',      '#2ecc71'],
+        ['Multifamily', '#9b59b6'],
+        ['Other',       '#95a5a6'],
+    ];
+    const html = types.map(([t,c]) => `
+        <div class="legend-item">
+            <div class="legend-dot" style="background:${c}"></div>
+            <span>${t}</span>
+        </div>`).join('');
+    document.getElementById('type-legend').innerHTML = `<div class="legend-title">Property Type</div>${html}`;
+}
+
+// ── DRAWING ───────────────────────────────────────────────────────────────────
+function startDraw(mode) {
+    if (currentShape) { currentShape.setMap(null); currentShape=null; }
+    document.getElementById('sel-panel').classList.add('hidden');
+    document.getElementById('btn-clear').classList.add('hidden');
+    const modeMap = { polygon:google.maps.drawing.OverlayType.POLYGON, rectangle:google.maps.drawing.OverlayType.RECTANGLE, circle:google.maps.drawing.OverlayType.CIRCLE };
+    drawingManager.setDrawingMode(modeMap[mode]);
+    ['btn-polygon','btn-rect','btn-circle'].forEach(id => document.getElementById(id).classList.remove('draw-active'));
+    const ids = { polygon:'btn-polygon', rectangle:'btn-rect', circle:'btn-circle' };
+    document.getElementById(ids[mode]).classList.add('draw-active');
+    document.getElementById('draw-banner').classList.remove('hidden');
+}
+
+function stopDraw() {
+    drawingManager.setDrawingMode(null);
+    ['btn-polygon','btn-rect','btn-circle'].forEach(id => document.getElementById(id).classList.remove('draw-active'));
+    document.getElementById('draw-banner').classList.add('hidden');
+}
+
+function clearSelection() {
+    stopDraw();
+    if (currentShape) { currentShape.setMap(null); currentShape=null; }
+    document.getElementById('sel-panel').classList.add('hidden');
+    document.getElementById('btn-clear').classList.add('hidden');
+    selectedProperties = [];
+    document.getElementById('sel-chat-msgs').innerHTML = '<div class="sel-msg ai">Ask me anything about the properties in this area.</div>';
+}
+
+// ── ANALYZE SELECTION ─────────────────────────────────────────────────────────
+function analyzeSelection(type, shape) {
+    const visible = currentFilter==='all' ? allProperties : allProperties.filter(p=>p.type===currentFilter);
+    selectedProperties = visible.filter(p => {
+        if (!p.latitude||!p.longitude) return false;
+        const pt = new google.maps.LatLng(parseFloat(p.latitude), parseFloat(p.longitude));
+        if (type==='circle') {
+            return shape.getBounds().contains(pt) &&
+                google.maps.geometry.spherical.computeDistanceBetween(shape.getCenter(), pt) <= shape.getRadius();
+        } else if (type==='rectangle') {
+            return shape.getBounds().contains(pt);
+        } else {
+            return google.maps.geometry.poly.containsLocation(pt, shape);
+        }
+    });
+    renderSelPanel(type);
+}
+
+// ── SELECTION PANEL ───────────────────────────────────────────────────────────
+function renderSelPanel(type) {
+    const panel = document.getElementById('sel-panel');
+    panel.classList.remove('hidden');
+    const label = type==='circle'?'Circle':type==='rectangle'?'Rectangle':'Polygon';
+    document.getElementById('sel-title').textContent = `${label} — ${selectedProperties.length} props`;
+
+    const sales = selectedProperties.filter(p=>p.type==='Sale');
+    const totalVol = sales.reduce((s,p)=>s+(Number(p.sale_price)||0),0);
+    const avgPrice = sales.length ? totalVol/sales.length : 0;
+    const withSF = sales.filter(p=>Number(p.building_sf)>0&&Number(p.sale_price)>0);
+    const avgPPSF = withSF.length ? withSF.reduce((s,p)=>s+Number(p.sale_price)/Number(p.building_sf),0)/withSF.length : 0;
+
+    document.getElementById('sel-count').textContent = selectedProperties.length;
+    document.getElementById('sel-volume').textContent = fmtM(totalVol);
+    document.getElementById('sel-avg').textContent = fmtM(avgPrice);
+    document.getElementById('sel-ppsf').textContent = avgPPSF>0 ? '$'+avgPPSF.toFixed(2) : 'N/A';
+
+    const types = {};
+    selectedProperties.forEach(p => { if(p.property_type) types[p.property_type]=(types[p.property_type]||0)+1; });
+    document.getElementById('sel-type-breakdown').innerHTML = Object.entries(types)
+        .sort((a,b)=>b[1]-a[1])
+        .map(([t,n])=>`<div class="sel-type-row"><span>${t}</span><span class="sel-type-val">${n}</span></div>`).join('');
+
+    // Property list
+    document.getElementById('sel-list').innerHTML = selectedProperties.length === 0
+        ? '<div style="padding:16px;color:#888;font-size:12px;text-align:center">No properties in this area</div>'
+        : selectedProperties.map((p,i) => {
+            const price = p.type==='Sale'
+                ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A')
+                : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
+            return `<div class="sel-item" onclick="focusProp(${p.latitude},${p.longitude})">
+                <div class="s-addr">${p.address}, ${p.city}</div>
+                <div class="s-meta"><span>${p.property_type||'Unknown'} · ${p.type}</span><span class="s-price">${price}</span></div>
+            </div>`;
+        }).join('');
+
+    // Populate compare dropdowns
+    populateCompareDropdowns();
+}
+
+function showSelTab(tab, el) {
+    document.querySelectorAll('.sel-tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('sel-stats-pane').classList.toggle('hidden', tab!=='stats');
+    document.getElementById('sel-list-pane').classList.toggle('hidden', tab!=='list');
+    document.getElementById('sel-chat-pane').classList.toggle('hidden', tab!=='chat');
+}
+
+function focusProp(lat, lng) {
+    map.panTo({lat:parseFloat(lat),lng:parseFloat(lng)});
+    map.setZoom(16);
+}
+
+function fmtM(n) {
+    if (!n) return '$0';
+    if (n>=1000000) return '$'+(n/1000000).toFixed(1)+'M';
+    return '$'+Math.round(n).toLocaleString();
+}
+
+// ── AREA AI CHAT ──────────────────────────────────────────────────────────────
+async function sendAreaChat() {
+    const input = document.getElementById('sel-chat-input');
+    const q = input.value.trim();
+    if (!q || !selectedProperties.length) return;
+
+    addSelMsg(q, 'user');
+    input.value = '';
+    const lid = addSelMsg('Thinking...', 'loading');
+
+    try {
+        const res = await fetch('/area-chat', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ question:q, properties:selectedProperties })
+        });
+        const data = await res.json();
+        removeSelMsg(lid);
+        addSelMsg(data.answer||'Could not get an answer.', 'ai');
+    } catch(e) {
+        removeSelMsg(lid);
+        addSelMsg('Connection error.', 'ai');
+    }
+}
+
+function addSelMsg(text, type) {
+    const id = 'sm'+Date.now()+Math.random();
+    const div = document.createElement('div');
+    div.className = `sel-msg ${type}`; div.id=id; div.textContent=text;
+    const c = document.getElementById('sel-chat-msgs');
+    c.appendChild(div); c.scrollTop=c.scrollHeight;
+    return id;
+}
+function removeSelMsg(id) { const el=document.getElementById(id); if(el)el.remove(); }
+
+// ── EXPORT CSV ────────────────────────────────────────────────────────────────
+function exportCSV() {
+    if (!selectedProperties.length) return;
+    const headers = ['Address','City','State','Property Type','Transaction Type','Sale Price','Lease Rate','Date','Latitude','Longitude'];
+    const rows = selectedProperties.map(p=>[
+        p.address||'', p.city||'', p.state||'', p.property_type||'', p.type||'',
+        p.sale_price||'', p.lease_rate||'',
+        p.sale_date||p.lease_date||'',
+        p.latitude||'', p.longitude||''
+    ]);
+    const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download = `comps_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+}
+
+// ── PDF REPORT ────────────────────────────────────────────────────────────────
+function generatePDF() {
+    if (!selectedProperties.length) return;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const today = new Date().toLocaleDateString();
+
+    // Header
+    doc.setFillColor(26, 60, 94);
+    doc.rect(0, 0, 210, 22, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('Lee & Associates — Comp Report', 14, 14);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`Generated: ${today}  |  Properties: ${selectedProperties.length}`, 14, 20);
+
+    // Stats summary
+    const sales = selectedProperties.filter(p=>p.type==='Sale');
+    const totalVol = sales.reduce((s,p)=>s+(Number(p.sale_price)||0),0);
+    const avgPrice = sales.length ? Math.round(totalVol/sales.length) : 0;
+
+    doc.setTextColor(0,0,0);
+    doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('Summary', 14, 32);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(`Total Sale Volume: $${totalVol.toLocaleString()}`, 14, 40);
+    doc.text(`Average Sale Price: $${avgPrice.toLocaleString()}`, 14, 46);
+    doc.text(`Total Properties: ${selectedProperties.length}  |  Sales: ${sales.length}  |  Leases: ${selectedProperties.length-sales.length}`, 14, 52);
+
+    // Table header
+    let y = 62;
+    doc.setFillColor(240, 244, 248);
+    doc.rect(12, y-5, 186, 8, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.setTextColor(26,60,94);
+    doc.text('Address', 14, y);
+    doc.text('City', 80, y);
+    doc.text('Type', 110, y);
+    doc.text('Trans.', 135, y);
+    doc.text('Price / Rate', 158, y);
+    doc.text('Date', 185, y);
+
+    y += 6;
+    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+
+    selectedProperties.forEach((p, i) => {
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+        }
+        if (i%2===0) {
+            doc.setFillColor(248,249,250);
+            doc.rect(12, y-4, 186, 7, 'F');
+        }
+        doc.setFontSize(7.5);
+        const addr = (p.address||'').substring(0,35);
+        const city = (p.city||'').substring(0,15);
+        const type = (p.property_type||'').substring(0,14);
+        const trans = p.type||'';
+        const price = p.type==='Sale'
+            ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A')
+            : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
+        const date = (p.sale_date||p.lease_date||'').substring(0,10);
+
+        doc.text(addr, 14, y);
+        doc.text(city, 80, y);
+        doc.text(type, 110, y);
+        doc.text(trans, 135, y);
+        doc.text(price, 158, y);
+        doc.text(date, 185, y);
+        y += 7;
+    });
+
+    // Footer
+    doc.setFontSize(7); doc.setTextColor(150,150,150);
+    doc.text('Lee & Associates | Confidential — For Internal Use Only', 14, 290);
+
+    doc.save(`comp_report_${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+// ── COMPARE ───────────────────────────────────────────────────────────────────
+let compareList = [];
+
+function addToCompare(p) {
+    if (compareList.length >= 2) compareList = [];
+    if (!compareList.find(x=>x.address===p.address)) compareList.push(p);
+    if (compareList.length === 2) openCompare();
+    infoWindow.close();
+}
+
+function openCompare() {
+    populateCompareDropdowns();
+    document.getElementById('compare-modal').classList.remove('hidden');
+    document.getElementById('compare-result').innerHTML = '';
+    if (compareList.length===2) runCompare();
+}
+
+function closeCompare() {
+    document.getElementById('compare-modal').classList.add('hidden');
+}
+
+function populateCompareDropdowns() {
+    const props = selectedProperties.length ? selectedProperties : allProperties.slice(0,50);
+    const opts = props.map((p,i)=>`<option value="${i}">${p.address}, ${p.city}</option>`).join('');
+    document.getElementById('compare-a').innerHTML = '<option value="">Select Property A</option>'+opts;
+    document.getElementById('compare-b').innerHTML = '<option value="">Select Property B</option>'+opts;
+    if (compareList.length===2) {
+        // pre-select
+        const iA = props.findIndex(p=>p.address===compareList[0].address);
+        const iB = props.findIndex(p=>p.address===compareList[1].address);
+        if (iA>=0) document.getElementById('compare-a').value = iA;
+        if (iB>=0) document.getElementById('compare-b').value = iB;
+    }
+}
+
+function runCompare() {
+    const props = selectedProperties.length ? selectedProperties : allProperties.slice(0,50);
+    const iA = document.getElementById('compare-a').value;
+    const iB = document.getElementById('compare-b').value;
+    if (iA===''||iB==='') return;
+    const a = props[parseInt(iA)];
+    const b = props[parseInt(iB)];
+    if (!a||!b) return;
+
+    function rows(p) {
+        const price = p.type==='Sale' ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A') : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
+        const date = p.sale_date||p.lease_date||'N/A';
+        const sf = p.building_sf?Number(p.building_sf).toLocaleString()+' SF':'N/A';
+        const ppsf = (p.sale_price&&p.building_sf) ? '$'+(Number(p.sale_price)/Number(p.building_sf)).toFixed(2) : 'N/A';
+        return [
+            ['Address', p.address||'N/A'],
+            ['City', p.city||'N/A'],
+            ['Property Type', p.property_type||'N/A'],
+            ['Transaction', p.type||'N/A'],
+            ['Price / Rate', price],
+            ['Building Size', sf],
+            ['Price per SF', ppsf],
+            ['Date', date],
+        ];
+    }
+
+    const rA = rows(a), rB = rows(b);
+    document.getElementById('compare-result').innerHTML = `
+        <div class="compare-grid">
+            <div class="compare-col">
+                <div class="compare-col-head">Property A</div>
+                ${rA.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val highlight">${v}</span></div>`).join('')}
+            </div>
+            <div class="compare-col">
+                <div class="compare-col-head">Property B</div>
+                ${rB.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val highlight">${v}</span></div>`).join('')}
+            </div>
+        </div>`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function showTab(tab, el) {
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.panel-content').forEach(p=>p.classList.remove('active'));
+    const pane = document.getElementById('tab-'+tab);
+    pane.classList.add('active');
+    if (tab==='charts') loadCharts();
+    if (tab==='markets') loadMarkets();
+    if (tab==='recent') loadRecent();
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+async function loadCharts() {
+    const from = document.getElementById('chart-from').value || '2022-01-01';
+    const to   = document.getElementById('chart-to').value   || new Date().toISOString().slice(0,10);
+    try {
+        const res = await fetch(`/api/charts?from=${from}&to=${to}`);
+        const data = await res.json();
+        drawPriceTrend(data.priceTrend||[]);
+        drawVolume(data.volume||[]);
+        drawLeaseTrend(data.leaseTrend||[]);
+        drawPPSF(data.ppsf||[]);
+    } catch(e) { console.error('Chart error',e); }
+}
+
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+function drawPriceTrend(data) {
+    destroyChart('priceTrend');
+    const ctx = document.getElementById('chart-price-trend').getContext('2d');
+    charts['priceTrend'] = new Chart(ctx, {
+        type:'line',
+        data:{
+            labels: data.map(d=>d.period),
+            datasets:[{
+                label:'Avg Sale Price',
+                data: data.map(d=>d.avg_price),
+                borderColor:'#1a3c5e', backgroundColor:'rgba(26,60,94,.1)',
+                tension:.3, fill:true, pointRadius:3,
+            }]
+        },
+        options:{ plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ callback:v=>'$'+Number(v).toLocaleString() } } } }
+    });
+}
+
+function drawVolume(data) {
+    destroyChart('volume');
+    const ctx = document.getElementById('chart-volume').getContext('2d');
+    const colors = data.map(d=>typeColor(d.property_type));
+    charts['volume'] = new Chart(ctx, {
+        type:'bar',
+        data:{
+            labels: data.map(d=>d.property_type),
+            datasets:[{
+                label:'Number of Sales',
+                data: data.map(d=>d.count),
+                backgroundColor: colors,
+            }]
+        },
+        options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } }
+    });
+}
+
+function drawLeaseTrend(data) {
+    destroyChart('leaseTrend');
+    const ctx = document.getElementById('chart-lease-trend').getContext('2d');
+    charts['leaseTrend'] = new Chart(ctx, {
+        type:'line',
+        data:{
+            labels: data.map(d=>d.period),
+            datasets:[{
+                label:'Avg Lease Rate $/SF/yr',
+                data: data.map(d=>d.avg_rate),
+                borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,.1)',
+                tension:.3, fill:true, pointRadius:3,
+            }]
+        },
+        options:{ plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ callback:v=>'$'+v } } } }
+    });
+}
+
+function drawPPSF(data) {
+    destroyChart('ppsf');
+    const ctx = document.getElementById('chart-ppsf').getContext('2d');
+    charts['ppsf'] = new Chart(ctx, {
+        type:'bar',
+        data:{
+            labels: data.map(d=>d.city),
+            datasets:[{
+                label:'Avg $/SF',
+                data: data.map(d=>d.avg_ppsf),
+                backgroundColor:'#3498db',
+            }]
+        },
+        options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ ticks:{ callback:v=>'$'+v } } } }
+    });
+}
+
+// ── MARKETS ───────────────────────────────────────────────────────────────────
+async function loadMarkets() {
+    try {
+        const res = await fetch('/api/markets');
+        const data = await res.json();
+        document.getElementById('markets-list').innerHTML = data.map(m=>`
+            <div class="market-card">
+                <h4>${m.city}, ${m.state||'LA'}</h4>
+                <div class="market-stats">
+                    <div class="market-stat"><div class="val">${Number(m.total_sales).toLocaleString()}</div><div class="lbl">Total Sales</div></div>
+                    <div class="market-stat"><div class="val">${fmtM(m.total_volume)}</div><div class="lbl">Total Volume</div></div>
+                    <div class="market-stat"><div class="val">${fmtM(m.avg_sale_price)}</div><div class="lbl">Avg Sale Price</div></div>
+                    <div class="market-stat"><div class="val">${m.avg_ppsf?'$'+m.avg_ppsf+'/SF':'N/A'}</div><div class="lbl">Avg Price/SF</div></div>
+                </div>
+            </div>`).join('');
+    } catch(e) {
+        document.getElementById('markets-list').innerHTML = '<div style="padding:16px;color:#888">Could not load market data</div>';
+    }
+}
+
+// ── RECENT ────────────────────────────────────────────────────────────────────
+async function loadRecent() {
+    try {
+        const res = await fetch('/api/recent');
+        const data = await res.json();
+        document.getElementById('recent-list').innerHTML = data.map(r=>{
+            const price = r.comp_type==='Sale'
+                ? (r.price?'$'+Number(r.price).toLocaleString():'N/A')
+                : (r.rate?'$'+Number(r.rate).toFixed(2)+'/SF':'N/A');
+            return `
+                <div class="recent-item">
+                    <div class="ri-top">
+                        <div class="ri-name">${r.name||r.address}</div>
+                        <div class="ri-price">${price}</div>
+                    </div>
+                    <div class="ri-meta">
+                        <span>
+                            <span class="ri-badge ${r.comp_type.toLowerCase()}">${r.comp_type}</span>
+                            ${r.property_type||''} · ${r.city||''}
+                        </span>
+                        <span>${r.date||''}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        document.getElementById('recent-list').innerHTML = '<div style="padding:16px;color:#888">Could not load recent activity</div>';
+    }
+}
+
+// ── MAIN AI CHAT ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const q = input.value.trim();
+    if (!q) return;
+    addMessage(q,'user');
+    input.value='';
+    document.getElementById('send-btn').disabled=true;
+    const lid = addMessage('Thinking...','loading');
+    try {
+        const res = await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
+        const data = await res.json();
+        removeMessage(lid);
+        addMessage(data.answer||'Sorry, could not get an answer.','ai');
+    } catch(e) {
+        removeMessage(lid);
+        addMessage('Connection error. Make sure the server is running.','ai');
+    }
+    document.getElementById('send-btn').disabled=false;
+    document.getElementById('chat-input').focus();
+}
+
+function askQuestion(q) { document.getElementById('chat-input').value=q; sendMessage(); }
+
+function addMessage(text,type) {
+    const id='msg'+Date.now()+Math.random();
+    const div=document.createElement('div');
+    div.className=`message ${type}`; div.id=id; div.textContent=text;
+    const c=document.getElementById('chat-messages');
+    c.appendChild(div); c.scrollTop=c.scrollHeight;
+    return id;
+}
+function removeMessage(id) { const el=document.getElementById(id); if(el)el.remove(); }
+
+// Set default date for chart-to
+document.getElementById('chart-to').value = new Date().toISOString().slice(0,10);
+
+window.onload = initMap;
+</script>
+</body>
+</html>
