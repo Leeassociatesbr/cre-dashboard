@@ -61,17 +61,32 @@ STRICT SQL RULES:
 11. For buildout_lease_comps filter lease_rate < 500 to exclude monthly totals
 `;
 
-// ── AI CHAT ───────────────────────────────────────────────────────────────────
+// ── AI CHAT (with conversation memory) ───────────────────────────────────────
 app.post('/chat', async (req, res) => {
-  const { question } = req.body;
+  const { question, history } = req.body;
   if (!question) return res.status(400).json({ error: 'No question provided' });
 
   try {
+    // Build conversation history for context
+    const conversationMessages = [];
+    
+    // Add previous exchanges if they exist
+    if (history && history.length > 0) {
+      history.forEach(exchange => {
+        conversationMessages.push({ role: 'user', content: exchange.question });
+        conversationMessages.push({ role: 'assistant', content: exchange.sql });
+      });
+    }
+    
+    // Add current question
+    conversationMessages.push({ role: 'user', content: question });
+
+    // Step 1 — Generate SQL with conversation context
     const sqlResponse = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       system: DB_SCHEMA,
-      messages: [{ role: 'user', content: question }]
+      messages: conversationMessages
     });
 
     let sqlQuery = sqlResponse.content[0].text
@@ -90,6 +105,7 @@ app.post('/chat', async (req, res) => {
 
     console.log('\n--- SQL ---\n', sqlQuery, '\n---\n');
 
+    // Step 2 — Run against Supabase
     const { data, error } = await supabase.rpc('run_query', { query: sqlQuery });
 
     if (error) {
@@ -97,10 +113,27 @@ app.post('/chat', async (req, res) => {
       return res.json({
         answer: `I could not run that query. Error: ${error.message}. Please try rephrasing.`,
         sql: sqlQuery,
-        error: error.message
+        error: error.message,
+        recordCount: 0
       });
     }
 
+    const recordCount = Array.isArray(data) ? data.length : 0;
+
+    // Step 3 — Build answer messages with history
+    const answerMessages = [];
+    if (history && history.length > 0) {
+      history.forEach(exchange => {
+        answerMessages.push({ role: 'user', content: exchange.question });
+        answerMessages.push({ role: 'assistant', content: exchange.answer });
+      });
+    }
+    answerMessages.push({
+      role: 'user',
+      content: `User asked: "${question}"\n\nDatabase returned ${recordCount} records:\n${JSON.stringify(data, null, 2)}\n\nAnswer in clean plain text. At the end add one line: "Based on X records from the database." where X is ${recordCount}.`
+    });
+
+    // Step 4 — Generate plain English answer
     const answerResponse = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
@@ -108,14 +141,17 @@ app.post('/chat', async (req, res) => {
 Answer in clean plain text only. No markdown, no ##, no **, no |, no bullet points with -.
 Write like a professional memo. For multiple results use numbered lines: 1. Address — $500,000
 Format dollars as $1,250,000. Format SF as 12,500 SF. Format rates as $15.50/SF/yr.
-Keep answers brief and to the point. If no results say so in one sentence.`,
-      messages: [{
-        role: 'user',
-        content: `User asked: "${question}"\n\nDatabase results:\n${JSON.stringify(data, null, 2)}\n\nAnswer in clean plain text.`
-      }]
+Keep answers brief and to the point. If no results say so in one sentence.
+Always end with: "Based on X records from the database." on its own line.`,
+      messages: answerMessages
     });
 
-    res.json({ answer: answerResponse.content[0].text, sql: sqlQuery, data });
+    res.json({
+      answer: answerResponse.content[0].text,
+      sql: sqlQuery,
+      data,
+      recordCount
+    });
 
   } catch (err) {
     console.error('Server error:', err.message);
@@ -125,22 +161,20 @@ Keep answers brief and to the point. If no results say so in one sentence.`,
 
 // ── AREA CHAT ─────────────────────────────────────────────────────────────────
 app.post('/area-chat', async (req, res) => {
-  const { question, properties } = req.body;
+  const { question, properties, history } = req.body;
   if (!question || !properties) return res.status(400).json({ error: 'Missing data' });
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: `You are a commercial real estate data assistant.
-The user has selected a geographic area on a map and you have the properties inside that area.
-Answer questions about these specific properties only.
-Answer in clean plain text. No markdown, no ##, no **, no bullet points with -.
-Write like a professional memo. Format dollars as $1,250,000. Format SF as 12,500 SF.
-Keep answers brief and to the point.`,
-      messages: [{
-        role: 'user',
-        content: `The user has selected ${properties.length} properties in a geographic area on the map.
+    const messages = [];
+    if (history && history.length > 0) {
+      history.forEach(exchange => {
+        messages.push({ role: 'user', content: exchange.question });
+        messages.push({ role: 'assistant', content: exchange.answer });
+      });
+    }
+    messages.push({
+      role: 'user',
+      content: `The user has selected ${properties.length} properties in a geographic area on the map.
 
 Properties in selected area:
 ${JSON.stringify(properties.map(p => ({
@@ -157,8 +191,19 @@ ${JSON.stringify(properties.map(p => ({
 
 User question: "${question}"
 
-Answer based only on the properties listed above.`
-      }]
+Answer based only on the properties listed above. End with "Based on ${properties.length} properties in the selected area."`
+    });
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system: `You are a commercial real estate data assistant.
+The user has selected a geographic area on a map and you have the properties inside that area.
+Answer questions about these specific properties only.
+Answer in clean plain text. No markdown, no ##, no **, no bullet points with -.
+Write like a professional memo. Format dollars as $1,250,000. Format SF as 12,500 SF.
+Keep answers brief and to the point.`,
+      messages
     });
 
     res.json({ answer: response.content[0].text });
@@ -201,7 +246,6 @@ app.get('/api/charts', async (req, res) => {
   const dateTo   = to   || new Date().toISOString().slice(0, 10);
 
   try {
-    // Price trend — monthly avg sale price across all sale tables
     const priceTrendSQL = `
       SELECT
         to_char(date_trunc('quarter', sale_date::date), 'YYYY-MM') AS period,
@@ -229,7 +273,6 @@ app.get('/api/charts', async (req, res) => {
       GROUP BY period
       ORDER BY period`;
 
-    // Volume by property type
     const volumeSQL = `
       SELECT property_type, COUNT(*) AS count, ROUND(SUM(sale_price::numeric)) AS total_volume
       FROM (
@@ -243,7 +286,6 @@ app.get('/api/charts', async (req, res) => {
       GROUP BY property_type
       ORDER BY count DESC`;
 
-    // Lease rate trend — quarterly avg
     const leaseTrendSQL = `
       SELECT
         to_char(date_trunc('quarter', lease_date::date), 'YYYY-MM') AS period,
@@ -256,7 +298,6 @@ app.get('/api/charts', async (req, res) => {
       GROUP BY period
       ORDER BY period`;
 
-    // Price per SF by submarket/city
     const ppsfSQL = `
       SELECT
         city,

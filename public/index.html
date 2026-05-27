@@ -12,20 +12,17 @@
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:Arial,sans-serif; background:#f4f6f9; color:#333; overflow:hidden; }
 
-        /* HEADER */
         .header {
             background:#1a3c5e; color:white;
             padding:12px 20px;
             display:flex; align-items:center; justify-content:space-between;
-            height:52px;
+            height:52px; flex-shrink:0;
         }
         .header h1 { font-size:18px; letter-spacing:.5px; }
         .header span { font-size:12px; opacity:.7; }
 
-        /* LAYOUT */
         .container { display:flex; height:calc(100vh - 52px); }
 
-        /* LEFT PANEL */
         .left-panel {
             width:380px; min-width:380px;
             background:white;
@@ -34,7 +31,6 @@
             overflow:hidden;
         }
 
-        /* TABS */
         .tabs { display:flex; border-bottom:2px solid #e0e0e0; flex-shrink:0; }
         .tab {
             flex:1; padding:10px 4px;
@@ -45,9 +41,8 @@
         }
         .tab.active { color:#1a3c5e; border-bottom-color:#1a3c5e; }
 
-        /* PANEL CONTENT */
-        .panel-content { flex:1; overflow-y:auto; display:none; }
-        .panel-content.active { display:flex; flex-direction:column; }
+        .panel-content { flex:1; overflow-y:auto; display:none; flex-direction:column; }
+        .panel-content.active { display:flex; }
 
         /* CHAT */
         .chat-messages {
@@ -60,10 +55,18 @@
             padding:10px 13px; border-radius:8px;
             font-size:13px; line-height:1.6;
             max-width:92%; white-space:pre-wrap; word-wrap:break-word;
+            position:relative;
         }
         .message.user { background:#1a3c5e; color:white; align-self:flex-end; border-radius:8px 8px 2px 8px; }
-        .message.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #e0e0e0; border-radius:8px 8px 8px 2px; }
+        .message.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #e0e0e0; border-radius:8px 8px 8px 2px; padding-bottom:28px; }
         .message.loading { background:#f0f4f8; color:#999; align-self:flex-start; font-style:italic; border:1px solid #e0e0e0; }
+        .copy-btn {
+            position:absolute; bottom:6px; right:8px;
+            padding:3px 8px; background:#e0e8f0; border:none;
+            border-radius:4px; font-size:10px; cursor:pointer; color:#555;
+            transition:all .15s;
+        }
+        .copy-btn:hover { background:#1a3c5e; color:white; }
 
         .quick-questions { padding:8px 12px; border-top:1px solid #f0f0f0; background:#fafafa; flex-shrink:0; }
         .quick-questions p { font-size:10px; color:#aaa; margin-bottom:5px; text-transform:uppercase; letter-spacing:.5px; }
@@ -87,45 +90,34 @@
         .chat-input-area button:hover { background:#24527a; }
         .chat-input-area button:disabled { background:#aaa; cursor:not-allowed; }
 
-        /* CHARTS TAB */
+        /* CHARTS */
         .charts-container { padding:14px; display:flex; flex-direction:column; gap:16px; }
         .chart-card { background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:14px; }
         .chart-card h4 { font-size:12px; font-weight:700; color:#1a3c5e; text-transform:uppercase; letter-spacing:.5px; margin-bottom:10px; }
-        .chart-filters { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+        .chart-filters { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; align-items:center; }
         .date-filter { padding:4px 8px; border:1px solid #ddd; border-radius:4px; font-size:11px; }
-        .filter-btn {
-            padding:4px 10px; background:white; border:1px solid #ddd;
-            border-radius:4px; font-size:11px; cursor:pointer; color:#555;
-        }
-        .filter-btn.active { background:#1a3c5e; color:white; border-color:#1a3c5e; }
+        .filter-btn { padding:4px 10px; background:white; border:1px solid #ddd; border-radius:4px; font-size:11px; cursor:pointer; color:#555; }
+        .filter-btn:hover { background:#1a3c5e; color:white; border-color:#1a3c5e; }
         canvas { max-height:180px; }
 
-        /* MARKETS TAB */
+        /* MARKETS */
         .markets-container { padding:14px; display:flex; flex-direction:column; gap:10px; }
-        .market-card {
-            background:#f8f9fa; border:1px solid #e0e0e0;
-            border-radius:8px; padding:12px; cursor:pointer; transition:all .2s;
-        }
-        .market-card:hover { border-color:#1a3c5e; background:#f0f4f8; }
+        .market-card { background:#f8f9fa; border:1px solid #e0e0e0; border-radius:8px; padding:12px; }
         .market-card h4 { font-size:14px; font-weight:700; color:#1a3c5e; margin-bottom:8px; }
         .market-stats { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
-        .market-stat { font-size:12px; }
-        .market-stat .val { font-weight:700; color:#333; }
+        .market-stat .val { font-weight:700; color:#333; font-size:13px; }
         .market-stat .lbl { color:#888; font-size:11px; }
 
-        /* RECENT TAB */
+        /* RECENT */
         .recent-container { padding:0; }
         .recent-header { padding:12px 14px; font-size:11px; font-weight:700; color:#888; text-transform:uppercase; background:#fafafa; border-bottom:1px solid #eee; }
-        .recent-item { padding:12px 14px; border-bottom:1px solid #f0f0f0; transition:background .15s; }
+        .recent-item { padding:12px 14px; border-bottom:1px solid #f0f0f0; }
         .recent-item:hover { background:#f8f9fa; }
         .recent-item .ri-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px; }
         .recent-item .ri-name { font-size:13px; font-weight:600; color:#333; }
         .recent-item .ri-price { font-size:13px; font-weight:700; color:#1a3c5e; }
         .recent-item .ri-meta { font-size:11px; color:#888; }
-        .recent-item .ri-badge {
-            display:inline-block; padding:2px 6px; border-radius:3px;
-            font-size:10px; font-weight:700; margin-right:4px;
-        }
+        .ri-badge { display:inline-block; padding:2px 6px; border-radius:3px; font-size:10px; font-weight:700; margin-right:4px; }
         .ri-badge.sale { background:#e8f0f8; color:#1a3c5e; }
         .ri-badge.lease { background:#fff3e0; color:#e8a020; }
 
@@ -133,20 +125,19 @@
         .map-section { flex:1; position:relative; overflow:hidden; }
         #map { width:100%; height:100%; }
 
-        /* MAP CONTROLS */
         .map-top-bar {
             position:absolute; top:10px; left:10px; right:10px;
             z-index:10; display:flex; gap:6px; flex-wrap:wrap; align-items:center;
         }
         .map-search-box {
-            flex:1; min-width:180px; max-width:280px;
+            flex:1; min-width:160px; max-width:240px;
             padding:7px 12px; border:2px solid #ddd; border-radius:6px;
             font-size:13px; outline:none; background:white;
             box-shadow:0 2px 4px rgba(0,0,0,.1);
         }
         .map-search-box:focus { border-color:#1a3c5e; }
         .map-btn {
-            padding:7px 12px; background:white; border:2px solid #ddd;
+            padding:7px 11px; background:white; border:2px solid #ddd;
             border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;
             box-shadow:0 2px 4px rgba(0,0,0,.1); transition:all .2s; white-space:nowrap;
         }
@@ -154,7 +145,21 @@
         .map-btn.draw-active { border-color:#e8a020; color:#e8a020; background:#fff8ec; }
         .map-btn.danger { border-color:#c0392b; color:#c0392b; }
 
-        /* MAP LEGEND */
+        /* DATE SLIDER */
+        .date-slider-bar {
+            position:absolute; bottom:60px; left:50%; transform:translateX(-50%);
+            background:white; border-radius:10px; padding:10px 18px;
+            box-shadow:0 2px 12px rgba(0,0,0,.18); z-index:10;
+            display:flex; align-items:center; gap:12px; white-space:nowrap;
+        }
+        .date-slider-bar label { font-size:12px; font-weight:600; color:#1a3c5e; }
+        .date-slider-bar input[type=range] { width:160px; accent-color:#1a3c5e; }
+        .date-slider-bar span { font-size:12px; color:#555; min-width:90px; }
+        .date-slider-bar button {
+            padding:4px 10px; background:#1a3c5e; color:white;
+            border:none; border-radius:5px; font-size:11px; cursor:pointer;
+        }
+
         .map-legend {
             position:absolute; bottom:22px; left:10px;
             background:white; border-radius:8px; padding:10px 14px;
@@ -167,7 +172,6 @@
         .legend-item:last-child { margin-bottom:0; }
         .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-        /* MAP MODE BUTTONS */
         .map-mode-bar {
             position:absolute; bottom:22px; right:10px;
             z-index:10; display:flex; gap:6px; flex-direction:column; align-items:flex-end;
@@ -179,7 +183,6 @@
         }
         .mode-btn.active { border-color:#1a3c5e; color:#1a3c5e; background:#f0f4f8; }
 
-        /* DRAW BANNER */
         .draw-banner {
             position:absolute; top:52px; left:50%; transform:translateX(-50%);
             background:#e8a020; color:white; padding:7px 18px;
@@ -205,7 +208,6 @@
         .sel-close { background:none; border:none; color:white; font-size:18px; cursor:pointer; opacity:.8; line-height:1; }
         .sel-close:hover { opacity:1; }
 
-        /* SELECTION TABS */
         .sel-tabs { display:flex; border-bottom:1px solid #eee; flex-shrink:0; }
         .sel-tab {
             flex:1; padding:8px; text-align:center; cursor:pointer;
@@ -214,19 +216,27 @@
         }
         .sel-tab.active { color:#1a3c5e; border-bottom-color:#1a3c5e; }
 
-        /* SELECTION STATS */
+        /* STATS PANE */
         .sel-stats-pane { overflow-y:auto; flex:1; }
         .sel-stats-pane.hidden { display:none; }
-        .sel-stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px; }
+        .sel-stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:12px 12px 6px; }
         .sel-stat { background:#f0f4f8; border-radius:6px; padding:10px; text-align:center; }
-        .sel-stat .num { font-size:16px; font-weight:700; color:#1a3c5e; }
+        .sel-stat .num { font-size:15px; font-weight:700; color:#1a3c5e; }
         .sel-stat .lbl { font-size:10px; color:#888; margin-top:2px; text-transform:uppercase; }
+        .sel-stat .sample { font-size:9px; color:#aaa; margin-top:1px; }
+
+        .sel-extra-stats { padding:0 12px 10px; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+        .sel-extra-stat { background:#f8f9fa; border:1px solid #eee; border-radius:5px; padding:7px; text-align:center; }
+        .sel-extra-stat .num { font-size:13px; font-weight:700; color:#333; }
+        .sel-extra-stat .lbl { font-size:9px; color:#888; text-transform:uppercase; }
+
+        .sel-date-range { padding:0 12px 8px; font-size:11px; color:#888; text-align:center; }
+
         .sel-type-list { padding:0 12px 10px; }
         .sel-type-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #f5f5f5; font-size:12px; }
         .sel-type-row:last-child { border:none; }
         .sel-type-val { font-weight:600; color:#1a3c5e; }
 
-        /* SELECTION ACTIONS */
         .sel-actions { padding:10px 12px; border-top:1px solid #eee; display:flex; gap:6px; flex-shrink:0; }
         .sel-action-btn {
             flex:1; padding:7px; border:none; border-radius:6px;
@@ -237,7 +247,7 @@
         .sel-action-btn.secondary { background:#f0f4f8; color:#1a3c5e; border:1px solid #ddd; }
         .sel-action-btn.secondary:hover { background:#e0e8f0; }
 
-        /* SELECTION LIST */
+        /* LIST PANE */
         .sel-list-pane { overflow-y:auto; flex:1; }
         .sel-list-pane.hidden { display:none; }
         .sel-list-header { padding:7px 12px; font-size:10px; font-weight:700; color:#888; text-transform:uppercase; background:#fafafa; border-bottom:1px solid #eee; position:sticky; top:0; }
@@ -247,14 +257,20 @@
         .sel-item .s-meta { font-size:11px; color:#888; display:flex; justify-content:space-between; }
         .sel-item .s-price { color:#1a3c5e; font-weight:600; }
 
-        /* SELECTION AI CHAT */
+        /* AREA CHAT PANE */
         .sel-chat-pane { display:flex; flex-direction:column; flex:1; overflow:hidden; }
         .sel-chat-pane.hidden { display:none; }
         .sel-chat-msgs { flex:1; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
-        .sel-msg { padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.5; max-width:95%; white-space:pre-wrap; }
+        .sel-msg { padding:8px 10px; border-radius:6px; font-size:12px; line-height:1.5; max-width:95%; white-space:pre-wrap; position:relative; }
         .sel-msg.user { background:#1a3c5e; color:white; align-self:flex-end; }
-        .sel-msg.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #eee; }
+        .sel-msg.ai { background:#f0f4f8; color:#333; align-self:flex-start; border:1px solid #eee; padding-bottom:24px; }
         .sel-msg.loading { background:#f0f4f8; color:#999; align-self:flex-start; font-style:italic; }
+        .sel-copy-btn {
+            position:absolute; bottom:4px; right:6px;
+            padding:2px 6px; background:#e0e8f0; border:none;
+            border-radius:3px; font-size:9px; cursor:pointer; color:#555;
+        }
+        .sel-copy-btn:hover { background:#1a3c5e; color:white; }
         .sel-chat-input { padding:8px 10px; border-top:1px solid #eee; display:flex; gap:6px; flex-shrink:0; }
         .sel-chat-input input { flex:1; padding:7px 10px; border:1px solid #ddd; border-radius:5px; font-size:12px; outline:none; }
         .sel-chat-input input:focus { border-color:#1a3c5e; }
@@ -271,8 +287,7 @@
         .compare-row { display:flex; justify-content:space-between; padding:8px 14px; border-bottom:1px solid #f0f0f0; font-size:12px; }
         .compare-row:last-child { border:none; }
         .compare-row .lbl { color:#888; }
-        .compare-row .val { font-weight:600; color:#333; }
-        .compare-row .val.highlight { color:#1a3c5e; }
+        .compare-row .val { font-weight:600; color:#1a3c5e; }
         .modal-actions { display:flex; gap:8px; margin-top:16px; justify-content:flex-end; }
         .modal-btn { padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; border:none; }
         .modal-btn.primary { background:#1a3c5e; color:white; }
@@ -289,18 +304,17 @@
 </div>
 
 <div class="container">
-
     <!-- LEFT PANEL -->
     <div class="left-panel">
         <div class="tabs">
-            <div class="tab active" onclick="showTab('chat',this)">💬 Chat</div>
-            <div class="tab" onclick="showTab('charts',this)">📈 Charts</div>
-            <div class="tab" onclick="showTab('markets',this)">🏙️ Markets</div>
-            <div class="tab" onclick="showTab('recent',this)">🕐 Recent</div>
+            <div class="tab active" data-tab="chat">💬 Chat</div>
+            <div class="tab" data-tab="charts">📈 Charts</div>
+            <div class="tab" data-tab="markets">🏙️ Markets</div>
+            <div class="tab" data-tab="recent">🕐 Recent</div>
         </div>
 
         <!-- CHAT TAB -->
-        <div id="tab-chat" class="panel-content active" style="display:flex;">
+        <div id="tab-chat" class="panel-content active">
             <div class="chat-messages" id="chat-messages">
                 <div class="message ai">👋 Hi! I'm your AI assistant. I have access to all your comp data across Buildout, Dealius, and your own records. Ask me anything — property searches, market stats, deal history, and more.</div>
             </div>
@@ -328,9 +342,9 @@
                     <h4>📈 Price Trend Over Time</h4>
                     <div class="chart-filters">
                         <input type="date" class="date-filter" id="chart-from" value="2022-01-01">
-                        <span style="font-size:11px;color:#888;line-height:2">to</span>
+                        <span style="font-size:11px;color:#888">to</span>
                         <input type="date" class="date-filter" id="chart-to">
-                        <button class="filter-btn active" onclick="loadCharts()">Apply</button>
+                        <button class="filter-btn" onclick="loadCharts()">Apply</button>
                     </div>
                     <canvas id="chart-price-trend"></canvas>
                 </div>
@@ -383,22 +397,37 @@
 
         <div id="map"></div>
 
+        <!-- DATE SLIDER -->
+        <div class="date-slider-bar" id="date-slider-bar">
+            <label>📅 Filter by year:</label>
+            <input type="range" id="year-from" min="2018" max="2026" value="2018" oninput="updateSliderLabel()">
+            <span id="slider-label">2018 — 2026</span>
+            <input type="range" id="year-to" min="2018" max="2026" value="2026" oninput="updateSliderLabel()">
+            <button onclick="applyDateFilter()">Apply</button>
+            <button onclick="resetDateFilter()" style="background:#888;">Reset</button>
+        </div>
+
         <div class="draw-banner hidden" id="draw-banner">Drawing mode — draw your shape on the map</div>
 
-        <!-- MAP MODE BUTTONS -->
         <div class="map-mode-bar">
             <button class="mode-btn active" id="mode-pins" onclick="setMapMode('pins')">📍 Pins</button>
             <button class="mode-btn" id="mode-heat" onclick="setMapMode('heat')">🌡️ Heatmap</button>
         </div>
 
-        <!-- LEGEND -->
         <div class="map-legend" id="map-legend">
             <div class="legend-section">
                 <div class="legend-title">Transaction Type</div>
                 <div class="legend-item"><div class="legend-dot" style="background:#1a3c5e"></div> Sale</div>
                 <div class="legend-item"><div class="legend-dot" style="background:#e8a020"></div> Lease</div>
             </div>
-            <div class="legend-section" id="type-legend"></div>
+            <div class="legend-section">
+                <div class="legend-title">Property Type</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div> Industrial</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#3498db"></div> Office</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#2ecc71"></div> Retail</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#9b59b6"></div> Multifamily</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#95a5a6"></div> Other</div>
+            </div>
         </div>
 
         <!-- SELECTION PANEL -->
@@ -408,25 +437,62 @@
                 <button class="sel-close" onclick="clearSelection()">×</button>
             </div>
             <div class="sel-tabs">
-                <div class="sel-tab active" onclick="showSelTab('stats',this)">Stats</div>
-                <div class="sel-tab" onclick="showSelTab('list',this)">Properties</div>
-                <div class="sel-tab" onclick="showSelTab('chat',this)">💬 Ask AI</div>
+                <div class="sel-tab active" data-sel-tab="stats">Stats</div>
+                <div class="sel-tab" data-sel-tab="list">Properties</div>
+                <div class="sel-tab" data-sel-tab="chat">💬 Ask AI</div>
             </div>
+
             <!-- Stats pane -->
             <div class="sel-stats-pane" id="sel-stats-pane">
                 <div class="sel-stat-grid">
-                    <div class="sel-stat"><div class="num" id="sel-count">0</div><div class="lbl">Properties</div></div>
-                    <div class="sel-stat"><div class="num" id="sel-volume">$0</div><div class="lbl">Total Volume</div></div>
-                    <div class="sel-stat"><div class="num" id="sel-avg">$0</div><div class="lbl">Avg Sale Price</div></div>
-                    <div class="sel-stat"><div class="num" id="sel-ppsf">N/A</div><div class="lbl">Avg Price/SF</div></div>
+                    <div class="sel-stat">
+                        <div class="num" id="sel-count">0</div>
+                        <div class="lbl">Properties</div>
+                    </div>
+                    <div class="sel-stat">
+                        <div class="num" id="sel-volume">$0</div>
+                        <div class="lbl">Total Volume</div>
+                        <div class="sample" id="sel-volume-sample"></div>
+                    </div>
+                    <div class="sel-stat">
+                        <div class="num" id="sel-avg">$0</div>
+                        <div class="lbl">Avg Sale Price</div>
+                        <div class="sample" id="sel-avg-sample"></div>
+                    </div>
+                    <div class="sel-stat">
+                        <div class="num" id="sel-ppsf">N/A</div>
+                        <div class="lbl">Avg Price/SF</div>
+                        <div class="sample" id="sel-ppsf-sample"></div>
+                    </div>
                 </div>
+                <div class="sel-extra-stats">
+                    <div class="sel-extra-stat">
+                        <div class="num" id="sel-median">N/A</div>
+                        <div class="lbl">Median Price</div>
+                    </div>
+                    <div class="sel-extra-stat">
+                        <div class="num" id="sel-total-sf">N/A</div>
+                        <div class="lbl">Total SF</div>
+                    </div>
+                    <div class="sel-extra-stat">
+                        <div class="num" id="sel-min">N/A</div>
+                        <div class="lbl">Lowest Sale</div>
+                    </div>
+                    <div class="sel-extra-stat">
+                        <div class="num" id="sel-max">N/A</div>
+                        <div class="lbl">Highest Sale</div>
+                    </div>
+                </div>
+                <div class="sel-date-range" id="sel-date-range"></div>
                 <div class="sel-type-list" id="sel-type-breakdown"></div>
             </div>
+
             <!-- List pane -->
             <div class="sel-list-pane hidden" id="sel-list-pane">
                 <div class="sel-list-header">Properties in Selection</div>
                 <div id="sel-list"></div>
             </div>
+
             <!-- AI Chat pane -->
             <div class="sel-chat-pane hidden" id="sel-chat-pane">
                 <div class="sel-chat-msgs" id="sel-chat-msgs">
@@ -437,10 +503,10 @@
                     <button onclick="sendAreaChat()">Ask</button>
                 </div>
             </div>
-            <!-- Actions -->
+
             <div class="sel-actions">
-                <button class="sel-action-btn primary" onclick="exportCSV()">⬇ Export CSV</button>
-                <button class="sel-action-btn secondary" onclick="generatePDF()">📄 PDF Report</button>
+                <button class="sel-action-btn primary" onclick="exportCSV()">⬇ CSV</button>
+                <button class="sel-action-btn secondary" onclick="generatePDF()">📄 PDF</button>
                 <button class="sel-action-btn secondary" onclick="openCompare()">⚖️ Compare</button>
             </div>
         </div>
@@ -451,14 +517,10 @@
 <div class="modal-overlay hidden" id="compare-modal">
     <div class="modal">
         <h3>⚖️ Side by Side Comparison</h3>
-        <p style="font-size:12px;color:#888;margin-bottom:12px;">Select two properties from the list to compare</p>
+        <p style="font-size:12px;color:#888;margin-bottom:12px;">Select two properties to compare</p>
         <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-            <select id="compare-a" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
-                <option value="">Select Property A</option>
-            </select>
-            <select id="compare-b" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;">
-                <option value="">Select Property B</option>
-            </select>
+            <select id="compare-a" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;"><option value="">Select Property A</option></select>
+            <select id="compare-b" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:6px;font-size:12px;"><option value="">Select Property B</option></select>
             <button class="modal-btn primary" onclick="runCompare()">Compare</button>
         </div>
         <div id="compare-result"></div>
@@ -472,12 +534,17 @@
 // ── GLOBALS ───────────────────────────────────────────────────────────────────
 let map, clusterer, heatmap, infoWindow, drawingManager, searchBox;
 let allProperties = [];
+let filteredByDate = null;
 let currentFilter = 'all';
 let currentShape = null;
 let selectedProperties = [];
 let mapMode = 'pins';
 let charts = {};
+let chatHistory = [];
+let areaChatHistory = [];
+let compareList = [];
 
+// ── TYPE COLOR ────────────────────────────────────────────────────────────────
 function typeColor(type) {
     if (!type) return '#95a5a6';
     const t = type.toLowerCase();
@@ -531,19 +598,68 @@ function initMap() {
     });
 
     loadMapData();
-    buildTypeLegend();
+
+    // Tab click handlers
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            showTab(this.getAttribute('data-tab'), this);
+        });
+    });
+
+    // Selection tab click handlers
+    document.querySelectorAll('.sel-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            showSelTab(this.getAttribute('data-sel-tab'), this);
+        });
+    });
 }
 
-// ── MAP DATA ──────────────────────────────────────────────────────────────────
+// ── LOAD MAP DATA ─────────────────────────────────────────────────────────────
 async function loadMapData() {
     try {
         const res = await fetch('/map-data');
         allProperties = await res.json();
-        renderMarkers(allProperties);
+        renderMarkers(getVisibleProperties());
         document.getElementById('last-updated').textContent = `${allProperties.length} properties loaded`;
     } catch(e) {
         document.getElementById('last-updated').textContent = 'Load error';
     }
+}
+
+function getVisibleProperties() {
+    let props = filteredByDate || allProperties;
+    if (currentFilter !== 'all') props = props.filter(p => p.type === currentFilter);
+    return props;
+}
+
+// ── DATE FILTER ───────────────────────────────────────────────────────────────
+function updateSliderLabel() {
+    const from = document.getElementById('year-from').value;
+    const to   = document.getElementById('year-to').value;
+    document.getElementById('slider-label').textContent = `${from} — ${to}`;
+}
+
+function applyDateFilter() {
+    const from = parseInt(document.getElementById('year-from').value);
+    const to   = parseInt(document.getElementById('year-to').value);
+    filteredByDate = allProperties.filter(p => {
+        const date = p.sale_date || p.lease_date;
+        if (!date) return false;
+        const year = parseInt(date.substring(0, 4));
+        return year >= from && year <= to;
+    });
+    renderMarkers(getVisibleProperties());
+    document.getElementById('last-updated').textContent =
+        `${getVisibleProperties().length} of ${allProperties.length} properties (${from}–${to})`;
+}
+
+function resetDateFilter() {
+    filteredByDate = null;
+    document.getElementById('year-from').value = 2018;
+    document.getElementById('year-to').value = 2026;
+    updateSliderLabel();
+    renderMarkers(getVisibleProperties());
+    document.getElementById('last-updated').textContent = `${allProperties.length} properties loaded`;
 }
 
 // ── RENDER MARKERS ────────────────────────────────────────────────────────────
@@ -575,6 +691,7 @@ function renderMarkers(props) {
                     strokeWeight: p.type === 'Sale' ? 1.5 : 1,
                 }
             });
+
             marker.addListener('click', () => {
                 const price = p.type === 'Sale'
                     ? (p.sale_price ? '$'+Number(p.sale_price).toLocaleString() : 'N/A')
@@ -599,20 +716,12 @@ function renderMarkers(props) {
 
     clusterer = new markerClusterer.MarkerClusterer({
         map, markers,
-        algorithm: new markerClusterer.SuperClusterAlgorithm({ 
-            radius: 40,
-            maxZoom: 14,
-        }),
+        algorithm: new markerClusterer.SuperClusterAlgorithm({ radius:40, maxZoom:14 }),
         renderer: {
             render({ count, position }) {
                 return new google.maps.Marker({
                     position,
-                    label: {
-                        text: String(count),
-                        color: 'white',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                    },
+                    label: { text:String(count), color:'white', fontSize:'12px', fontWeight:'bold' },
                     icon: {
                         path: google.maps.SymbolPath.CIRCLE,
                         scale: count > 10 ? 22 : 16,
@@ -634,8 +743,7 @@ function setMapMode(mode) {
     document.getElementById('mode-pins').classList.toggle('active', mode==='pins');
     document.getElementById('mode-heat').classList.toggle('active', mode==='heat');
     document.getElementById('map-legend').style.display = mode==='pins' ? '' : 'none';
-    const filtered = currentFilter==='all' ? allProperties : allProperties.filter(p=>p.type===currentFilter);
-    renderMarkers(filtered);
+    renderMarkers(getVisibleProperties());
 }
 
 // ── FILTER ────────────────────────────────────────────────────────────────────
@@ -643,26 +751,8 @@ function filterMap(type, btn) {
     currentFilter = type;
     ['btn-all','btn-sale','btn-lease'].forEach(id => document.getElementById(id).classList.remove('active'));
     btn.classList.add('active');
-    const filtered = type==='all' ? allProperties : allProperties.filter(p=>p.type===type);
-    renderMarkers(filtered);
+    renderMarkers(getVisibleProperties());
     if (currentShape) clearSelection();
-}
-
-// ── TYPE LEGEND ───────────────────────────────────────────────────────────────
-function buildTypeLegend() {
-    const types = [
-        ['Industrial',  '#e74c3c'],
-        ['Office',      '#3498db'],
-        ['Retail',      '#2ecc71'],
-        ['Multifamily', '#9b59b6'],
-        ['Other',       '#95a5a6'],
-    ];
-    const html = types.map(([t,c]) => `
-        <div class="legend-item">
-            <div class="legend-dot" style="background:${c}"></div>
-            <span>${t}</span>
-        </div>`).join('');
-    document.getElementById('type-legend').innerHTML = `<div class="legend-title">Property Type</div>${html}`;
 }
 
 // ── DRAWING ───────────────────────────────────────────────────────────────────
@@ -670,7 +760,11 @@ function startDraw(mode) {
     if (currentShape) { currentShape.setMap(null); currentShape=null; }
     document.getElementById('sel-panel').classList.add('hidden');
     document.getElementById('btn-clear').classList.add('hidden');
-    const modeMap = { polygon:google.maps.drawing.OverlayType.POLYGON, rectangle:google.maps.drawing.OverlayType.RECTANGLE, circle:google.maps.drawing.OverlayType.CIRCLE };
+    const modeMap = {
+        polygon:   google.maps.drawing.OverlayType.POLYGON,
+        rectangle: google.maps.drawing.OverlayType.RECTANGLE,
+        circle:    google.maps.drawing.OverlayType.CIRCLE
+    };
     drawingManager.setDrawingMode(modeMap[mode]);
     ['btn-polygon','btn-rect','btn-circle'].forEach(id => document.getElementById(id).classList.remove('draw-active'));
     const ids = { polygon:'btn-polygon', rectangle:'btn-rect', circle:'btn-circle' };
@@ -690,12 +784,13 @@ function clearSelection() {
     document.getElementById('sel-panel').classList.add('hidden');
     document.getElementById('btn-clear').classList.add('hidden');
     selectedProperties = [];
+    areaChatHistory = [];
     document.getElementById('sel-chat-msgs').innerHTML = '<div class="sel-msg ai">Ask me anything about the properties in this area.</div>';
 }
 
 // ── ANALYZE SELECTION ─────────────────────────────────────────────────────────
 function analyzeSelection(type, shape) {
-    const visible = currentFilter==='all' ? allProperties : allProperties.filter(p=>p.type===currentFilter);
+    const visible = getVisibleProperties();
     selectedProperties = visible.filter(p => {
         if (!p.latitude||!p.longitude) return false;
         const pt = new google.maps.LatLng(parseFloat(p.latitude), parseFloat(p.longitude));
@@ -713,22 +808,48 @@ function analyzeSelection(type, shape) {
 
 // ── SELECTION PANEL ───────────────────────────────────────────────────────────
 function renderSelPanel(type) {
-    const panel = document.getElementById('sel-panel');
-    panel.classList.remove('hidden');
+    document.getElementById('sel-panel').classList.remove('hidden');
     const label = type==='circle'?'Circle':type==='rectangle'?'Rectangle':'Polygon';
     document.getElementById('sel-title').textContent = `${label} — ${selectedProperties.length} props`;
 
-    const sales = selectedProperties.filter(p=>p.type==='Sale');
-    const totalVol = sales.reduce((s,p)=>s+(Number(p.sale_price)||0),0);
-    const avgPrice = sales.length ? totalVol/sales.length : 0;
-    const withSF = sales.filter(p=>Number(p.building_sf)>0&&Number(p.sale_price)>0);
-    const avgPPSF = withSF.length ? withSF.reduce((s,p)=>s+Number(p.sale_price)/Number(p.building_sf),0)/withSF.length : 0;
+    const sales = selectedProperties.filter(p => p.type==='Sale' && Number(p.sale_price) > 0);
+    const prices = sales.map(p => Number(p.sale_price)).sort((a,b)=>a-b);
+    const totalVol = prices.reduce((s,v)=>s+v, 0);
+    const avgPrice = prices.length ? totalVol/prices.length : 0;
+    const median = prices.length ? (prices.length%2===0 ? (prices[prices.length/2-1]+prices[prices.length/2])/2 : prices[Math.floor(prices.length/2)]) : 0;
+    const minPrice = prices.length ? prices[0] : 0;
+    const maxPrice = prices.length ? prices[prices.length-1] : 0;
 
+    const withSF = sales.filter(p=>Number(p.building_sf)>0);
+    const avgPPSF = withSF.length ? withSF.reduce((s,p)=>s+Number(p.sale_price)/Number(p.building_sf),0)/withSF.length : 0;
+    const totalSF = selectedProperties.reduce((s,p)=>s+(Number(p.building_sf)||0),0);
+
+    // Stats
     document.getElementById('sel-count').textContent = selectedProperties.length;
     document.getElementById('sel-volume').textContent = fmtM(totalVol);
+    document.getElementById('sel-volume-sample').textContent = prices.length ? `${prices.length} of ${selectedProperties.length} w/ price` : '';
     document.getElementById('sel-avg').textContent = fmtM(avgPrice);
+    document.getElementById('sel-avg-sample').textContent = prices.length ? `${prices.length} records` : 'no data';
     document.getElementById('sel-ppsf').textContent = avgPPSF>0 ? '$'+avgPPSF.toFixed(2) : 'N/A';
+    document.getElementById('sel-ppsf-sample').textContent = withSF.length ? `${withSF.length} records` : '';
 
+    // Extra stats
+    document.getElementById('sel-median').textContent = median>0 ? fmtM(median) : 'N/A';
+    document.getElementById('sel-total-sf').textContent = totalSF>0 ? Number(Math.round(totalSF)).toLocaleString()+' SF' : 'N/A';
+    document.getElementById('sel-min').textContent = minPrice>0 ? fmtM(minPrice) : 'N/A';
+    document.getElementById('sel-max').textContent = maxPrice>0 ? fmtM(maxPrice) : 'N/A';
+
+    // Date range
+    const dates = selectedProperties
+        .map(p => p.sale_date||p.lease_date)
+        .filter(Boolean).sort();
+    if (dates.length) {
+        document.getElementById('sel-date-range').textContent = `Date range: ${dates[0]} — ${dates[dates.length-1]}`;
+    } else {
+        document.getElementById('sel-date-range').textContent = '';
+    }
+
+    // Type breakdown
     const types = {};
     selectedProperties.forEach(p => { if(p.property_type) types[p.property_type]=(types[p.property_type]||0)+1; });
     document.getElementById('sel-type-breakdown').innerHTML = Object.entries(types)
@@ -738,7 +859,7 @@ function renderSelPanel(type) {
     // Property list
     document.getElementById('sel-list').innerHTML = selectedProperties.length === 0
         ? '<div style="padding:16px;color:#888;font-size:12px;text-align:center">No properties in this area</div>'
-        : selectedProperties.map((p,i) => {
+        : selectedProperties.map(p => {
             const price = p.type==='Sale'
                 ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A')
                 : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
@@ -748,7 +869,6 @@ function renderSelPanel(type) {
             </div>`;
         }).join('');
 
-    // Populate compare dropdowns
     populateCompareDropdowns();
 }
 
@@ -785,11 +905,13 @@ async function sendAreaChat() {
         const res = await fetch('/area-chat', {
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ question:q, properties:selectedProperties })
+            body: JSON.stringify({ question:q, properties:selectedProperties, history:areaChatHistory })
         });
         const data = await res.json();
         removeSelMsg(lid);
-        addSelMsg(data.answer||'Could not get an answer.', 'ai');
+        const msgId = addSelMsg(data.answer||'Could not get an answer.', 'ai');
+        areaChatHistory.push({ question:q, answer:data.answer });
+        addSelCopyBtn(msgId, data.answer);
     } catch(e) {
         removeSelMsg(lid);
         addSelMsg('Connection error.', 'ai');
@@ -805,6 +927,15 @@ function addSelMsg(text, type) {
     return id;
 }
 function removeSelMsg(id) { const el=document.getElementById(id); if(el)el.remove(); }
+function addSelCopyBtn(msgId, text) {
+    const el = document.getElementById(msgId);
+    if (!el) return;
+    const btn = document.createElement('button');
+    btn.className = 'sel-copy-btn';
+    btn.textContent = 'Copy';
+    btn.onclick = () => { navigator.clipboard.writeText(text); btn.textContent='Copied!'; setTimeout(()=>btn.textContent='Copy',2000); };
+    el.appendChild(btn);
+}
 
 // ── EXPORT CSV ────────────────────────────────────────────────────────────────
 function exportCSV() {
@@ -830,19 +961,20 @@ function generatePDF() {
     const doc = new jsPDF();
     const today = new Date().toLocaleDateString();
 
-    // Header
-    doc.setFillColor(26, 60, 94);
-    doc.rect(0, 0, 210, 22, 'F');
+    doc.setFillColor(26,60,94);
+    doc.rect(0,0,210,22,'F');
     doc.setTextColor(255,255,255);
     doc.setFontSize(14); doc.setFont('helvetica','bold');
     doc.text('Lee & Associates — Comp Report', 14, 14);
     doc.setFontSize(9); doc.setFont('helvetica','normal');
     doc.text(`Generated: ${today}  |  Properties: ${selectedProperties.length}`, 14, 20);
 
-    // Stats summary
     const sales = selectedProperties.filter(p=>p.type==='Sale');
-    const totalVol = sales.reduce((s,p)=>s+(Number(p.sale_price)||0),0);
-    const avgPrice = sales.length ? Math.round(totalVol/sales.length) : 0;
+    const prices = sales.map(p=>Number(p.sale_price)).filter(v=>v>0).sort((a,b)=>a-b);
+    const totalVol = prices.reduce((s,v)=>s+v,0);
+    const avgPrice = prices.length ? Math.round(totalVol/prices.length) : 0;
+    const median = prices.length ? (prices.length%2===0?(prices[prices.length/2-1]+prices[prices.length/2])/2:prices[Math.floor(prices.length/2)]) : 0;
+    const dates = selectedProperties.map(p=>p.sale_date||p.lease_date).filter(Boolean).sort();
 
     doc.setTextColor(0,0,0);
     doc.setFontSize(10); doc.setFont('helvetica','bold');
@@ -850,62 +982,44 @@ function generatePDF() {
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
     doc.text(`Total Sale Volume: $${totalVol.toLocaleString()}`, 14, 40);
     doc.text(`Average Sale Price: $${avgPrice.toLocaleString()}`, 14, 46);
-    doc.text(`Total Properties: ${selectedProperties.length}  |  Sales: ${sales.length}  |  Leases: ${selectedProperties.length-sales.length}`, 14, 52);
+    doc.text(`Median Sale Price: $${Math.round(median).toLocaleString()}`, 14, 52);
+    doc.text(`Total Properties: ${selectedProperties.length}  |  Sales: ${sales.length}  |  Leases: ${selectedProperties.length-sales.length}`, 14, 58);
+    if (dates.length) doc.text(`Date Range: ${dates[0]} — ${dates[dates.length-1]}`, 14, 64);
+    doc.text(`Based on ${prices.length} of ${selectedProperties.length} records with price data`, 14, 70);
 
-    // Table header
-    let y = 62;
-    doc.setFillColor(240, 244, 248);
-    doc.rect(12, y-5, 186, 8, 'F');
+    let y = 82;
+    doc.setFillColor(240,244,248);
+    doc.rect(12,y-5,186,8,'F');
     doc.setFont('helvetica','bold'); doc.setFontSize(8);
     doc.setTextColor(26,60,94);
-    doc.text('Address', 14, y);
-    doc.text('City', 80, y);
-    doc.text('Type', 110, y);
-    doc.text('Trans.', 135, y);
-    doc.text('Price / Rate', 158, y);
-    doc.text('Date', 185, y);
+    doc.text('Address',14,y); doc.text('City',80,y); doc.text('Type',110,y);
+    doc.text('Trans.',135,y); doc.text('Price/Rate',158,y); doc.text('Date',188,y);
 
-    y += 6;
+    y+=6;
     doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
 
-    selectedProperties.forEach((p, i) => {
-        if (y > 270) {
-            doc.addPage();
-            y = 20;
-        }
-        if (i%2===0) {
-            doc.setFillColor(248,249,250);
-            doc.rect(12, y-4, 186, 7, 'F');
-        }
+    selectedProperties.forEach((p,i) => {
+        if (y>270) { doc.addPage(); y=20; }
+        if (i%2===0) { doc.setFillColor(248,249,250); doc.rect(12,y-4,186,7,'F'); }
         doc.setFontSize(7.5);
-        const addr = (p.address||'').substring(0,35);
-        const city = (p.city||'').substring(0,15);
-        const type = (p.property_type||'').substring(0,14);
-        const trans = p.type||'';
         const price = p.type==='Sale'
             ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A')
             : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
-        const date = (p.sale_date||p.lease_date||'').substring(0,10);
-
-        doc.text(addr, 14, y);
-        doc.text(city, 80, y);
-        doc.text(type, 110, y);
-        doc.text(trans, 135, y);
-        doc.text(price, 158, y);
-        doc.text(date, 185, y);
-        y += 7;
+        doc.text((p.address||'').substring(0,34),14,y);
+        doc.text((p.city||'').substring(0,14),80,y);
+        doc.text((p.property_type||'').substring(0,13),110,y);
+        doc.text(p.type||'',135,y);
+        doc.text(price,158,y);
+        doc.text((p.sale_date||p.lease_date||'').substring(0,10),188,y);
+        y+=7;
     });
 
-    // Footer
     doc.setFontSize(7); doc.setTextColor(150,150,150);
     doc.text('Lee & Associates | Confidential — For Internal Use Only', 14, 290);
-
     doc.save(`comp_report_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
 // ── COMPARE ───────────────────────────────────────────────────────────────────
-let compareList = [];
-
 function addToCompare(p) {
     if (compareList.length >= 2) compareList = [];
     if (!compareList.find(x=>x.address===p.address)) compareList.push(p);
@@ -916,13 +1030,11 @@ function addToCompare(p) {
 function openCompare() {
     populateCompareDropdowns();
     document.getElementById('compare-modal').classList.remove('hidden');
-    document.getElementById('compare-result').innerHTML = '';
+    document.getElementById('compare-result').innerHTML='';
     if (compareList.length===2) runCompare();
 }
 
-function closeCompare() {
-    document.getElementById('compare-modal').classList.add('hidden');
-}
+function closeCompare() { document.getElementById('compare-modal').classList.add('hidden'); }
 
 function populateCompareDropdowns() {
     const props = selectedProperties.length ? selectedProperties : allProperties.slice(0,50);
@@ -930,11 +1042,10 @@ function populateCompareDropdowns() {
     document.getElementById('compare-a').innerHTML = '<option value="">Select Property A</option>'+opts;
     document.getElementById('compare-b').innerHTML = '<option value="">Select Property B</option>'+opts;
     if (compareList.length===2) {
-        // pre-select
         const iA = props.findIndex(p=>p.address===compareList[0].address);
         const iB = props.findIndex(p=>p.address===compareList[1].address);
-        if (iA>=0) document.getElementById('compare-a').value = iA;
-        if (iB>=0) document.getElementById('compare-b').value = iB;
+        if (iA>=0) document.getElementById('compare-a').value=iA;
+        if (iB>=0) document.getElementById('compare-b').value=iB;
     }
 }
 
@@ -948,32 +1059,30 @@ function runCompare() {
     if (!a||!b) return;
 
     function rows(p) {
-        const price = p.type==='Sale' ? (p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A') : (p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
-        const date = p.sale_date||p.lease_date||'N/A';
-        const sf = p.building_sf?Number(p.building_sf).toLocaleString()+' SF':'N/A';
-        const ppsf = (p.sale_price&&p.building_sf) ? '$'+(Number(p.sale_price)/Number(p.building_sf)).toFixed(2) : 'N/A';
+        const price = p.type==='Sale'?(p.sale_price?'$'+Number(p.sale_price).toLocaleString():'N/A'):(p.lease_rate?'$'+Number(p.lease_rate).toFixed(2)+'/SF':'N/A');
+        const ppsf = (p.sale_price&&p.building_sf)?'$'+(Number(p.sale_price)/Number(p.building_sf)).toFixed(2):'N/A';
         return [
             ['Address', p.address||'N/A'],
             ['City', p.city||'N/A'],
             ['Property Type', p.property_type||'N/A'],
             ['Transaction', p.type||'N/A'],
             ['Price / Rate', price],
-            ['Building Size', sf],
+            ['Building Size', p.building_sf?Number(p.building_sf).toLocaleString()+' SF':'N/A'],
             ['Price per SF', ppsf],
-            ['Date', date],
+            ['Date', p.sale_date||p.lease_date||'N/A'],
         ];
     }
 
-    const rA = rows(a), rB = rows(b);
+    const rA=rows(a), rB=rows(b);
     document.getElementById('compare-result').innerHTML = `
         <div class="compare-grid">
             <div class="compare-col">
                 <div class="compare-col-head">Property A</div>
-                ${rA.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val highlight">${v}</span></div>`).join('')}
+                ${rA.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join('')}
             </div>
             <div class="compare-col">
                 <div class="compare-col-head">Property B</div>
-                ${rB.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val highlight">${v}</span></div>`).join('')}
+                ${rB.map(([l,v])=>`<div class="compare-row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`).join('')}
             </div>
         </div>`;
 }
@@ -982,9 +1091,13 @@ function runCompare() {
 function showTab(tab, el) {
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     el.classList.add('active');
-    document.querySelectorAll('.panel-content').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.panel-content').forEach(p=>{
+        p.classList.remove('active');
+        p.style.display='none';
+    });
     const pane = document.getElementById('tab-'+tab);
     pane.classList.add('active');
+    pane.style.display='flex';
     if (tab==='charts') loadCharts();
     if (tab==='markets') loadMarkets();
     if (tab==='recent') loadRecent();
@@ -1008,71 +1121,40 @@ function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts
 
 function drawPriceTrend(data) {
     destroyChart('priceTrend');
-    const ctx = document.getElementById('chart-price-trend').getContext('2d');
-    charts['priceTrend'] = new Chart(ctx, {
+    if (!data.length) return;
+    charts['priceTrend'] = new Chart(document.getElementById('chart-price-trend').getContext('2d'), {
         type:'line',
-        data:{
-            labels: data.map(d=>d.period),
-            datasets:[{
-                label:'Avg Sale Price',
-                data: data.map(d=>d.avg_price),
-                borderColor:'#1a3c5e', backgroundColor:'rgba(26,60,94,.1)',
-                tension:.3, fill:true, pointRadius:3,
-            }]
-        },
+        data:{ labels:data.map(d=>d.period), datasets:[{ label:'Avg Sale Price', data:data.map(d=>d.avg_price), borderColor:'#1a3c5e', backgroundColor:'rgba(26,60,94,.1)', tension:.3, fill:true, pointRadius:3 }] },
         options:{ plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ callback:v=>'$'+Number(v).toLocaleString() } } } }
     });
 }
 
 function drawVolume(data) {
     destroyChart('volume');
-    const ctx = document.getElementById('chart-volume').getContext('2d');
-    const colors = data.map(d=>typeColor(d.property_type));
-    charts['volume'] = new Chart(ctx, {
+    if (!data.length) return;
+    charts['volume'] = new Chart(document.getElementById('chart-volume').getContext('2d'), {
         type:'bar',
-        data:{
-            labels: data.map(d=>d.property_type),
-            datasets:[{
-                label:'Number of Sales',
-                data: data.map(d=>d.count),
-                backgroundColor: colors,
-            }]
-        },
+        data:{ labels:data.map(d=>d.property_type), datasets:[{ label:'Sales', data:data.map(d=>d.count), backgroundColor:data.map(d=>typeColor(d.property_type)) }] },
         options:{ plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } }
     });
 }
 
 function drawLeaseTrend(data) {
     destroyChart('leaseTrend');
-    const ctx = document.getElementById('chart-lease-trend').getContext('2d');
-    charts['leaseTrend'] = new Chart(ctx, {
+    if (!data.length) return;
+    charts['leaseTrend'] = new Chart(document.getElementById('chart-lease-trend').getContext('2d'), {
         type:'line',
-        data:{
-            labels: data.map(d=>d.period),
-            datasets:[{
-                label:'Avg Lease Rate $/SF/yr',
-                data: data.map(d=>d.avg_rate),
-                borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,.1)',
-                tension:.3, fill:true, pointRadius:3,
-            }]
-        },
+        data:{ labels:data.map(d=>d.period), datasets:[{ label:'Avg Lease Rate', data:data.map(d=>d.avg_rate), borderColor:'#e8a020', backgroundColor:'rgba(232,160,32,.1)', tension:.3, fill:true, pointRadius:3 }] },
         options:{ plugins:{legend:{display:false}}, scales:{ y:{ ticks:{ callback:v=>'$'+v } } } }
     });
 }
 
 function drawPPSF(data) {
     destroyChart('ppsf');
-    const ctx = document.getElementById('chart-ppsf').getContext('2d');
-    charts['ppsf'] = new Chart(ctx, {
+    if (!data.length) return;
+    charts['ppsf'] = new Chart(document.getElementById('chart-ppsf').getContext('2d'), {
         type:'bar',
-        data:{
-            labels: data.map(d=>d.city),
-            datasets:[{
-                label:'Avg $/SF',
-                data: data.map(d=>d.avg_ppsf),
-                backgroundColor:'#3498db',
-            }]
-        },
+        data:{ labels:data.map(d=>d.city), datasets:[{ label:'Avg $/SF', data:data.map(d=>d.avg_ppsf), backgroundColor:'#3498db' }] },
         options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{ x:{ ticks:{ callback:v=>'$'+v } } } }
     });
 }
@@ -1084,12 +1166,13 @@ async function loadMarkets() {
         const data = await res.json();
         document.getElementById('markets-list').innerHTML = data.map(m=>`
             <div class="market-card">
-                <h4>${m.city}, ${m.state||'LA'}</h4>
+                <h4>${m.city}</h4>
                 <div class="market-stats">
                     <div class="market-stat"><div class="val">${Number(m.total_sales).toLocaleString()}</div><div class="lbl">Total Sales</div></div>
                     <div class="market-stat"><div class="val">${fmtM(m.total_volume)}</div><div class="lbl">Total Volume</div></div>
                     <div class="market-stat"><div class="val">${fmtM(m.avg_sale_price)}</div><div class="lbl">Avg Sale Price</div></div>
                     <div class="market-stat"><div class="val">${m.avg_ppsf?'$'+m.avg_ppsf+'/SF':'N/A'}</div><div class="lbl">Avg Price/SF</div></div>
+                    <div class="market-stat" style="grid-column:span 2"><div class="val" style="font-size:11px">${m.earliest_sale||'?'} — ${m.latest_sale||'?'}</div><div class="lbl">Date Range</div></div>
                 </div>
             </div>`).join('');
     } catch(e) {
@@ -1106,23 +1189,19 @@ async function loadRecent() {
             const price = r.comp_type==='Sale'
                 ? (r.price?'$'+Number(r.price).toLocaleString():'N/A')
                 : (r.rate?'$'+Number(r.rate).toFixed(2)+'/SF':'N/A');
-            return `
-                <div class="recent-item">
-                    <div class="ri-top">
-                        <div class="ri-name">${r.name||r.address}</div>
-                        <div class="ri-price">${price}</div>
-                    </div>
-                    <div class="ri-meta">
-                        <span>
-                            <span class="ri-badge ${r.comp_type.toLowerCase()}">${r.comp_type}</span>
-                            ${r.property_type||''} · ${r.city||''}
-                        </span>
-                        <span>${r.date||''}</span>
-                    </div>
-                </div>`;
+            return `<div class="recent-item">
+                <div class="ri-top">
+                    <div class="ri-name">${r.name||r.address}</div>
+                    <div class="ri-price">${price}</div>
+                </div>
+                <div class="ri-meta">
+                    <span><span class="ri-badge ${r.comp_type.toLowerCase()}">${r.comp_type}</span>${r.property_type||''} · ${r.city||''}</span>
+                    <span>${r.date||''}</span>
+                </div>
+            </div>`;
         }).join('');
     } catch(e) {
-        document.getElementById('recent-list').innerHTML = '<div style="padding:16px;color:#888">Could not load recent activity</div>';
+        document.getElementById('recent-list').innerHTML = '<div style="padding:16px;color:#888">Could not load</div>';
     }
 }
 
@@ -1131,19 +1210,30 @@ async function sendMessage() {
     const input = document.getElementById('chat-input');
     const q = input.value.trim();
     if (!q) return;
+
     addMessage(q,'user');
     input.value='';
     document.getElementById('send-btn').disabled=true;
     const lid = addMessage('Thinking...','loading');
+
     try {
-        const res = await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
+        const res = await fetch('/chat',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ question:q, history:chatHistory })
+        });
         const data = await res.json();
         removeMessage(lid);
-        addMessage(data.answer||'Sorry, could not get an answer.','ai');
+        const msgId = addMessage(data.answer||'Sorry, could not get an answer.','ai');
+        chatHistory.push({ question:q, sql:data.sql||'', answer:data.answer||'' });
+        // Keep history to last 6 exchanges to avoid token limits
+        if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
+        addCopyBtn(msgId, data.answer||'');
     } catch(e) {
         removeMessage(lid);
         addMessage('Connection error. Make sure the server is running.','ai');
     }
+
     document.getElementById('send-btn').disabled=false;
     document.getElementById('chat-input').focus();
 }
@@ -1158,10 +1248,26 @@ function addMessage(text,type) {
     c.appendChild(div); c.scrollTop=c.scrollHeight;
     return id;
 }
+
 function removeMessage(id) { const el=document.getElementById(id); if(el)el.remove(); }
 
-// Set default date for chart-to
+function addCopyBtn(msgId, text) {
+    const el = document.getElementById(msgId);
+    if (!el) return;
+    const btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.textContent = 'Copy';
+    btn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        btn.textContent='Copied!';
+        setTimeout(()=>btn.textContent='Copy',2000);
+    };
+    el.appendChild(btn);
+}
+
+// Set defaults
 document.getElementById('chart-to').value = new Date().toISOString().slice(0,10);
+updateSliderLabel();
 
 window.onload = initMap;
 </script>
