@@ -245,43 +245,60 @@ End with: "Based on ${properties.length} properties in the selected area."`,
   }
 });
 
-// ── MAP DATA — all 5 tables ───────────────────────────────────────────────────
+// ── MAP DATA — all 5 tables with optional bounds filtering ────────────────────
 app.get('/map-data', async (req, res) => {
   try {
+    const { north, south, east, west } = req.query;
+    const hasBounds = north && south && east && west;
+
+    function addBounds(query, latCol='latitude', lngCol='longitude') {
+      if (!hasBounds) return query;
+      return query
+        .gte(latCol, parseFloat(south))
+        .lte(latCol, parseFloat(north))
+        .gte(lngCol, parseFloat(west))
+        .lte(lngCol, parseFloat(east));
+    }
+
     const [bSales, bLeases, dSales, dLeases, eSales] = await Promise.all([
-      supabase
+      addBounds(supabase
         .from('buildout_sale_comps')
-        .select('id, property_name, address, city, state, property_type, sale_price, sale_date, building_sf, latitude, longitude')
+        .select('id, property_name, address, city, state, property_type, sale_price, sale_date, building_sf, photo_url, latitude, longitude')
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null),
-      supabase
+        .not('longitude', 'is', null))
+        .limit(2000),
+      addBounds(supabase
         .from('buildout_lease_comps')
-        .select('id, property_name, address, city, state, property_type, lease_rate, lease_date, building_sf, latitude, longitude')
+        .select('id, property_name, address, city, state, property_type, lease_rate, lease_date, building_sf, photo_url, latitude, longitude')
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null),
-      supabase
+        .not('longitude', 'is', null))
+        .limit(2000),
+      addBounds(supabase
         .from('dealius_sale_comps')
         .select('id, property_name, address, city, state, property_type, sale_price, close_date, building_sf, latitude, longitude')
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null),
-      supabase
+        .not('longitude', 'is', null))
+        .limit(2000),
+      addBounds(supabase
         .from('dealius_lease_comps')
         .select('id, property_name, address, city, state, property_type, effective_rate, commencement_date, building_sf, latitude, longitude')
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null),
-      supabase
+        .not('longitude', 'is', null))
+        .limit(2000),
+      addBounds(supabase
         .from('elifin_sale_comps')
         .select('id, address, city, state, property_type, sale_price, sale_date, size_sf, latitude, longitude')
         .not('latitude', 'is', null)
-        .not('longitude', 'is', null),
+        .not('longitude', 'is', null))
+        .limit(2000),
     ]);
 
     const properties = [
-      ...(bSales.data  || []).map(p => ({ ...p, table:'buildout_sale_comps',  type:'Sale',  building_sf: p.building_sf })),
-      ...(bLeases.data || []).map(p => ({ ...p, table:'buildout_lease_comps', type:'Lease', building_sf: p.building_sf })),
-      ...(dSales.data  || []).map(p => ({ ...p, table:'dealius_sale_comps',   type:'Sale',  sale_date: p.close_date, building_sf: p.building_sf })),
-      ...(dLeases.data || []).map(p => ({ ...p, table:'dealius_lease_comps',  type:'Lease', lease_rate: p.effective_rate, lease_date: p.commencement_date, building_sf: p.building_sf })),
-      ...(eSales.data  || []).map(p => ({ ...p, table:'elifin_sale_comps',    type:'Sale',  building_sf: p.size_sf })),
+      ...(bSales.data  || []).map(p => ({ ...p, table:'buildout_sale_comps',  type:'Sale',  building_sf:p.building_sf })),
+      ...(bLeases.data || []).map(p => ({ ...p, table:'buildout_lease_comps', type:'Lease', building_sf:p.building_sf })),
+      ...(dSales.data  || []).map(p => ({ ...p, table:'dealius_sale_comps',   type:'Sale',  sale_date:p.close_date, building_sf:p.building_sf })),
+      ...(dLeases.data || []).map(p => ({ ...p, table:'dealius_lease_comps',  type:'Lease', lease_rate:p.effective_rate, lease_date:p.commencement_date, building_sf:p.building_sf })),
+      ...(eSales.data  || []).map(p => ({ ...p, table:'elifin_sale_comps',    type:'Sale',  building_sf:p.size_sf })),
     ];
 
     res.json(properties);
@@ -289,7 +306,6 @@ app.get('/map-data', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 // ── CHARTS DATA ───────────────────────────────────────────────────────────────
 app.get('/api/charts', async (req, res) => {
   const { from, to } = req.query;
