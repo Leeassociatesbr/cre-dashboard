@@ -20,13 +20,14 @@
         .header h1 { font-size:18px; letter-spacing:.5px; }
         .header span { font-size:12px; opacity:.7; }
 
-        .container { display:flex; height:calc(100vh - 52px); overflow:hidden; }
+        .container { display:flex; height:calc(100vh - 52px); overflow:hidden; width:100vw; }
 
         /* RESIZABLE LEFT PANEL */
         .left-panel {
             width:380px; min-width:280px; max-width:600px;
             background:white; display:flex; flex-direction:column;
             border-right:1px solid #e0e0e0; overflow:hidden; flex-shrink:0;
+            height:100%;
         }
         .resizer {
             width:5px; cursor:col-resize; background:#e0e0e0;
@@ -116,7 +117,7 @@
         .ri-badge.lease { background:#fff3e0; color:#e8a020; }
 
         /* MAP */
-        .map-section { flex:1; position:relative; overflow:hidden; }
+        .map-section { flex:1; position:relative; overflow:hidden; min-width:0; height:100%; }
         #map { width:100%; height:100%; }
 
         .map-top-bar {
@@ -353,7 +354,29 @@
         .sv-container { width:800px; height:500px; max-width:95vw; max-height:80vh; border-radius:12px; overflow:hidden; position:relative; }
         .sv-close { position:absolute; top:12px; right:12px; background:rgba(0,0,0,.6); color:white; border:none; border-radius:50%; width:32px; height:32px; font-size:18px; cursor:pointer; z-index:10; }
         #sv-panorama { width:100%; height:100%; }
-
+/* FILTER RESULT CARDS */
+        .result-card {
+            border-bottom:1px solid #f0f0f0; cursor:pointer; transition:background .15s;
+        }
+        .result-card:hover { background:#f8f9fa; }
+        .result-card-photo {
+            width:100%; height:120px; object-fit:cover; background:#f0f4f8;
+            display:block;
+        }
+        .result-card-photo-placeholder {
+            width:100%; height:80px; background:#f0f4f8;
+            display:flex; align-items:center; justify-content:center; font-size:28px;
+        }
+        .result-card-body { padding:10px 14px; }
+        .result-card-price { font-size:15px; font-weight:700; color:#1a3c5e; margin-bottom:2px; }
+        .result-card-addr { font-size:12px; color:#333; font-weight:600; margin-bottom:4px; }
+        .result-card-meta { display:flex; justify-content:space-between; font-size:11px; color:#888; }
+        .result-card-badge {
+            display:inline-block; padding:2px 6px; border-radius:3px;
+            font-size:10px; font-weight:700; margin-right:4px;
+        }
+        .result-card-badge.sale { background:#e8f0f8; color:#1a3c5e; }
+        .result-card-badge.lease { background:#fff3e0; color:#e8a020; }
         .hidden { display:none !important; }
         .zoom-msg {
             position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -379,6 +402,7 @@
             <div class="tab" data-tab="charts">📈 Charts</div>
             <div class="tab" data-tab="markets">🏙️ Markets</div>
             <div class="tab" data-tab="recent">🕐 Recent</div>
+            <div class="tab hidden" data-tab="results" id="tab-results-btn">🔍 Results</div>
         </div>
 
         <!-- CHAT -->
@@ -445,7 +469,31 @@
                 <div style="padding:20px;text-align:center;color:#888;font-size:13px;">Loading...</div>
             </div>
         </div>
-    </div>
+
+        <!-- FILTER RESULTS -->
+        <div id="tab-results" class="panel-content">
+            <div style="padding:10px 14px;background:#1a3c5e;color:white;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+                <span id="results-count" style="font-size:13px;font-weight:600;">0 results</span>
+                <button onclick="clearFilters()" style="padding:4px 10px;background:rgba(255,255,255,.2);border:none;border-radius:4px;color:white;font-size:11px;cursor:pointer;">✕ Clear Filters</button>
+            </div>
+            <!-- AI chat for filtered results -->
+            <div style="border-bottom:1px solid #eee;flex-shrink:0;">
+                <div id="filter-chat-msgs" style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;">
+                    <div class="sel-msg ai" style="font-size:12px;">Ask me anything about these filtered results.</div>
+                </div>
+                <div style="padding:6px 10px;display:flex;gap:6px;border-top:1px solid #f0f0f0;">
+                    <input type="text" id="filter-chat-input"
+                        placeholder="Ask about these properties..."
+                        onkeypress="if(event.key==='Enter')sendFilterChat()"
+                        style="flex:1;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:12px;outline:none;">
+                    <button onclick="sendFilterChat()"
+                        style="padding:7px 12px;background:#1a3c5e;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-weight:600;">Ask</button>
+                </div>
+            </div>
+            <div id="results-list" style="flex:1;overflow-y:auto;"></div>
+        </div>
+
+    </div><!-- END LEFT PANEL -->
 
     <!-- RESIZER -->
     <div class="resizer" id="resizer"></div>
@@ -946,7 +994,7 @@ function toggleFilterPanel() {
     document.getElementById('filter-panel').classList.toggle('open');
 }
 
-function applyFilters() {
+async function applyFilters() {
     const checkedTypes = [...document.querySelectorAll('#type-checkboxes input:checked')].map(i=>i.value);
     const checkedSources = [...document.querySelectorAll('.filter-panel input[value=buildout], .filter-panel input[value=dealius], .filter-panel input[value=elifin]')]
         .filter(i=>i.checked).map(i=>i.value);
@@ -961,8 +1009,183 @@ function applyFilters() {
         sources:  checkedSources,
     };
 
-    renderMarkers(getVisibleProperties());
     toggleFilterPanel();
+
+    // Show loading in results tab
+    document.getElementById('tab-results-btn').classList.remove('hidden');
+    showTab('results', document.getElementById('tab-results-btn'));
+    document.getElementById('results-list').innerHTML = '<div style="padding:20px;text-align:center;color:#888;font-size:13px;">Searching...</div>';
+    document.getElementById('results-count').textContent = 'Searching...';
+
+    try {
+        const res = await fetch('/filter-search', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                types:           activeFilters.types,
+                priceMin:        activeFilters.priceMin,
+                priceMax:        activeFilters.priceMax,
+                sfMin:           activeFilters.sfMin,
+                sfMax:           activeFilters.sfMax,
+                city:            activeFilters.city,
+                sources:         activeFilters.sources,
+                transactionType: currentFilter,
+            })
+        });
+        const data = await res.json();
+        const results = data.results || [];
+
+        // Update map with filtered results
+        allProperties = results.filter(p => p.latitude && p.longitude);
+        renderMarkers(allProperties);
+
+        // Update results count
+        document.getElementById('results-count').textContent = `${results.length} properties found`;
+
+        // Get Google Maps key for street view thumbnails
+        const key = document.querySelector('script[src*="maps.googleapis"]').src.match(/key=([^&]+)/)?.[1] || '';
+
+        // Render result cards
+        if (results.length === 0) {
+            document.getElementById('results-list').innerHTML =
+                '<div style="padding:20px;text-align:center;color:#888;font-size:13px;">No properties match your filters.</div>';
+            return;
+        }
+
+        document.getElementById('results-list').innerHTML = results.map((p, i) => {
+            const isSale = p.type === 'Sale';
+            const price = isSale
+                ? (p.sale_price ? '$'+Number(p.sale_price).toLocaleString() : 'N/A')
+                : (p.lease_rate ? '$'+Number(p.lease_rate).toFixed(2)+'/SF/yr' : 'N/A');
+            const date = p.sale_date || p.lease_date || 'N/A';
+            const sf = p.building_sf ? Number(p.building_sf).toLocaleString()+' SF' : 'N/A';
+
+            // Photo: use Buildout photo if available, else Street View
+            let photoHtml = '';
+            if (p.photo_url) {
+                photoHtml = `<img class="result-card-photo" src="${p.photo_url}" onerror="this.style.display='none'" alt="Property">`;
+            } else if (p.latitude && p.longitude) {
+                const addr = encodeURIComponent(`${p.address}, ${p.city}, ${p.state}`);
+                photoHtml = `<img class="result-card-photo" src="https://maps.googleapis.com/maps/api/streetview?size=380x120&location=${addr}&key=${key}" onerror="this.outerHTML='<div class=result-card-photo-placeholder>🏢</div>'" alt="Street view">`;
+            } else {
+                photoHtml = `<div class="result-card-photo-placeholder">🏢</div>`;
+            }
+
+            return `<div class="result-card" onclick="flyToProperty(${i})">
+                ${photoHtml}
+                <div class="result-card-body">
+                    <div class="result-card-price">
+                        <span class="result-card-badge ${p.type.toLowerCase()}">${p.type}</span>
+                        ${price}
+                    </div>
+                    <div class="result-card-addr">${p.address}, ${p.city}, ${p.state}</div>
+                    <div class="result-card-meta">
+                        <span>${p.property_type||'Unknown'} · ${sf}</span>
+                        <span>${date}</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Store results for flyToProperty
+        window._filterResults = results;
+
+    } catch(e) {
+        console.error('Filter search error:', e);
+        document.getElementById('results-list').innerHTML =
+            '<div style="padding:20px;text-align:center;color:#c0392b;font-size:13px;">Search failed. Try again.</div>';
+    }
+}
+// ── FILTER RESULTS AI CHAT ────────────────────────────────────────────────────
+async function sendFilterChat() {
+    const input = document.getElementById('filter-chat-input');
+    const q = input.value.trim();
+    const results = window._filterResults || [];
+    if (!q || !results.length) return;
+
+    if (!window._filterChatHistory) window._filterChatHistory = [];
+
+    // Add user message
+    const msgs = document.getElementById('filter-chat-msgs');
+    const userDiv = document.createElement('div');
+    userDiv.className = 'sel-msg user';
+    userDiv.style.fontSize = '12px';
+    userDiv.textContent = q;
+    msgs.appendChild(userDiv);
+    input.value = '';
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Loading
+    const loadDiv = document.createElement('div');
+    loadDiv.className = 'sel-msg loading';
+    loadDiv.style.fontSize = '12px';
+    loadDiv.textContent = 'Thinking...';
+    msgs.appendChild(loadDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    try {
+        const res = await fetch('/area-chat', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                question: q,
+                properties: results.map(p => ({
+                    address: p.address,
+                    city: p.city,
+                    property_type: p.property_type,
+                    type: p.type,
+                    sale_price: p.sale_price,
+                    lease_rate: p.lease_rate,
+                    building_sf: p.building_sf,
+                    sale_date: p.sale_date,
+                    lease_date: p.lease_date,
+                })),
+                history: window._filterChatHistory
+            })
+        });
+        const data = await res.json();
+        loadDiv.remove();
+
+        const aiDiv = document.createElement('div');
+        aiDiv.className = 'sel-msg ai';
+        aiDiv.style.fontSize = '12px';
+        aiDiv.style.paddingBottom = '22px';
+        aiDiv.style.position = 'relative';
+        aiDiv.textContent = data.answer || 'Could not get an answer.';
+
+        // Copy button
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'sel-copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText(data.answer || '');
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+        };
+        aiDiv.appendChild(copyBtn);
+        msgs.appendChild(aiDiv);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        window._filterChatHistory.push({ question: q, answer: data.answer || '' });
+        if (window._filterChatHistory.length > 6) window._filterChatHistory = window._filterChatHistory.slice(-6);
+
+    } catch(e) {
+        loadDiv.remove();
+        const errDiv = document.createElement('div');
+        errDiv.className = 'sel-msg ai';
+        errDiv.style.fontSize = '12px';
+        errDiv.textContent = 'Connection error.';
+        msgs.appendChild(errDiv);
+    }
+}
+function flyToProperty(i) {
+    const p = window._filterResults[i];
+    if (!p) return;
+    if (p.latitude && p.longitude) {
+        map.panTo({lat:parseFloat(p.latitude), lng:parseFloat(p.longitude)});
+        map.setZoom(17);
+    }
+    showPropertyPanel(p);
 }
 
 function resetFilters() {
@@ -975,6 +1198,19 @@ function resetFilters() {
     document.getElementById('filter-city').value='';
     renderMarkers(getVisibleProperties());
     toggleFilterPanel();
+}
+
+function clearFilters() {
+    resetFilters();
+    activeFilters = {};
+    window._filterResults = [];
+    window._filterChatHistory = [];
+    document.getElementById('tab-results-btn').classList.add('hidden');
+    document.getElementById('filter-chat-msgs').innerHTML =
+        '<div class="sel-msg ai" style="font-size:12px;">Ask me anything about these filtered results.</div>';
+    const chatTab = document.querySelector('.tab[data-tab="chat"]');
+    if (chatTab) showTab('chat', chatTab);
+    loadMapData();
 }
 
 // ── DATE FILTER ───────────────────────────────────────────────────────────────

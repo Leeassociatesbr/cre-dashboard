@@ -7,6 +7,36 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ── PASSWORD PROTECTION ───────────────────────────────────────────────────────
+const DASHBOARD_PASSWORD = 'Leebr5555'; // ← change this to whatever you want
+
+app.use((req, res, next) => {
+  // Always allow the login endpoint and static assets
+  if (req.path === '/login' || req.path === '/login.html') return next();
+
+  // Check for auth cookie
+  const cookies = req.headers.cookie || '';
+  const isAuthed = cookies.split(';').some(c => c.trim() === 'cre_auth=true');
+
+  if (!isAuthed) {
+    // Serve the login page
+    return res.sendFile('login.html', { root: './public' });
+  }
+  next();
+});
+
+app.post('/login', (req, res) => {
+  const { password } = req.body;
+  if (password === DASHBOARD_PASSWORD) {
+    // Set cookie for 30 days
+    res.setHeader('Set-Cookie', 'cre_auth=true; Max-Age=2592000; Path=/; HttpOnly; SameSite=Strict');
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, message: 'Incorrect password' });
+  }
+});
+
 app.use(express.static('public'));
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -495,6 +525,138 @@ app.get('/api/recent', async (req, res) => {
     if (error) throw new Error(error.message);
     res.json(data || []);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ── FILTERED SEARCH ───────────────────────────────────────────────────────────
+app.post('/filter-search', async (req, res) => {
+  const { types, priceMin, priceMax, sfMin, sfMax, city, sources, transactionType } = req.body;
+
+  try {
+    const results = [];
+
+    // Build WHERE clauses
+    const saleWhere = (table, priceCol, sfCol, dateCol) => {
+      let conditions = [`${priceCol}::numeric > 0`];
+      if (priceMin) conditions.push(`${priceCol}::numeric >= ${priceMin}`);
+      if (priceMax) conditions.push(`${priceCol}::numeric <= ${priceMax}`);
+      if (sfMin)    conditions.push(`${sfCol}::numeric >= ${sfMin}`);
+      if (sfMax)    conditions.push(`${sfCol}::numeric <= ${sfMax}`);
+      if (city)     conditions.push(`city ILIKE '%${city.replace(/'/g,"''")}%'`);
+      if (types && types.length > 0) {
+        const typeConditions = types.map(t => {
+          if (t === 'Other') return `property_type NOT ILIKE '%industrial%' AND property_type NOT ILIKE '%office%' AND property_type NOT ILIKE '%retail%' AND property_type NOT ILIKE '%multifamily%' AND property_type NOT ILIKE '%land%'`;
+          return `property_type ILIKE '%${t}%'`;
+        });
+        conditions.push(`(${typeConditions.join(' OR ')})`);
+      }
+      return conditions.join(' AND ');
+    };
+
+    const queries = [];
+
+    // Sale tables
+    if (!transactionType || transactionType === 'all' || transactionType === 'Sale') {
+      if (!sources || sources.includes('buildout')) {
+        queries.push(supabase
+          .from('buildout_sale_comps')
+          .select('id, property_name, address, city, state, zip, property_type, sale_price, sale_date, building_sf, photo_url, latitude, longitude, source')
+          .gt('sale_price', priceMin || 0)
+          .order('sale_date', { ascending: false })
+          .limit(200)
+        );
+      }
+      if (!sources || sources.includes('dealius')) {
+        queries.push(supabase
+          .from('dealius_sale_comps')
+          .select('id, property_name, address, city, state, zip, property_type, sale_price, close_date, building_sf, latitude, longitude, source')
+          .gt('sale_price', priceMin || 0)
+          .order('close_date', { ascending: false })
+          .limit(200)
+        );
+      }
+      if (!sources || sources.includes('elifin')) {
+        queries.push(supabase
+          .from('elifin_sale_comps')
+          .select('id, address, city, state, zip, property_type, sale_price, sale_date, size_sf, latitude, longitude, source')
+          .gt('sale_price', priceMin || 0)
+          .order('sale_date', { ascending: false })
+          .limit(200)
+        );
+      }
+    }
+
+    // Lease tables
+    if (!transactionType || transactionType === 'all' || transactionType === 'Lease') {
+      if (!sources || sources.includes('buildout')) {
+        queries.push(supabase
+          .from('buildout_lease_comps')
+          .select('id, property_name, address, city, state, zip, property_type, lease_rate, lease_date, leased_sf, building_sf, photo_url, latitude, longitude, source')
+          .gt('lease_rate', 0)
+          .lt('lease_rate', 500)
+          .order('lease_date', { ascending: false })
+          .limit(200)
+        );
+      }
+      if (!sources || sources.includes('dealius')) {
+        queries.push(supabase
+          .from('dealius_lease_comps')
+          .select('id, property_name, address, city, state, zip, property_type, effective_rate, commencement_date, leased_sf, building_sf, latitude, longitude, source')
+          .gt('effective_rate', 0)
+          .order('commencement_date', { ascending: false })
+          .limit(200)
+        );
+      }
+    }
+
+    const allResults = await Promise.all(queries);
+    let combined = [];
+
+    allResults.forEach((r, i) => {
+      if (r.error) return;
+      const data = r.data || [];
+      // Normalize fields
+      data.forEach(p => {
+        // Determine type
+        if (p.sale_price) p.type = 'Sale';
+        else if (p.lease_rate || p.effective_rate) p.type = 'Lease';
+        else p.type = 'Sale';
+
+        // Normalize date
+        if (p.close_date) { p.sale_date = p.close_date; delete p.close_date; }
+        if (p.commencement_date) { p.lease_date = p.commencement_date; delete p.commencement_date; }
+        if (p.effective_rate) { p.lease_rate = p.effective_rate; delete p.effective_rate; }
+        if (p.size_sf) { p.building_sf = p.size_sf; delete p.size_sf; }
+        if (p.leased_sf && !p.building_sf) p.building_sf = p.leased_sf;
+
+        combined.push(p);
+      });
+    });
+
+    // Apply remaining filters client-side for flexibility
+    if (types && types.length > 0) {
+      combined = combined.filter(p => {
+        const t = (p.property_type || '').toLowerCase();
+        return types.some(ft => {
+          if (ft === 'Other') return !['industrial','office','retail','multifamily','land'].some(k => t.includes(k));
+          return t.includes(ft.toLowerCase());
+        });
+      });
+    }
+    if (city) combined = combined.filter(p => (p.city||'').toLowerCase().includes(city.toLowerCase()));
+    if (priceMax) combined = combined.filter(p => Number(p.sale_price||0) <= priceMax);
+    if (sfMin) combined = combined.filter(p => Number(p.building_sf||0) >= sfMin);
+    if (sfMax) combined = combined.filter(p => Number(p.building_sf||0) <= sfMax);
+    if (sources && sources.length > 0) {
+      combined = combined.filter(p => sources.includes((p.source||'').toLowerCase()));
+    }
+
+    // Sort by price descending
+    combined.sort((a,b) => Number(b.sale_price||b.lease_rate||0) - Number(a.sale_price||a.lease_rate||0));
+
+    res.json({ results: combined, total: combined.length });
+  } catch (err) {
+    console.error('Filter search error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

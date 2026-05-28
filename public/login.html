@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lee & Associates — Login</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family:Arial,sans-serif;
+            background:#1a3c5e;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            height:100vh;
+        }
+        .login-box {
+            background:white;
+            border-radius:12px;
+            padding:40px;
+            width:360px;
+            box-shadow:0 20px 60px rgba(0,0,0,.3);
+        }
+        .logo {
+            text-align:center;
+            margin-bottom:30px;
+        }
+        .logo h1 {
+            font-size:20px;
+            color:#1a3c5e;
+            font-weight:700;
+            letter-spacing:.5px;
+        }
+        .logo p {
+            font-size:12px;
+            color:#888;
+            margin-top:4px;
+        }
+        .divider {
+            height:2px;
+            background:#f0f4f8;
+            margin:20px 0;
+        }
+        label {
+            display:block;
+            font-size:11px;
+            font-weight:700;
+            color:#1a3c5e;
+            text-transform:uppercase;
+            letter-spacing:.5px;
+            margin-bottom:8px;
+        }
+        input[type=password] {
+            width:100%;
+            padding:12px 14px;
+            border:2px solid #e0e0e0;
+            border-radius:8px;
+            font-size:14px;
+            outline:none;
+            transition:border .2s;
+            margin-bottom:16px;
+        }
+        input[type=password]:focus { border-color:#1a3c5e; }
+        button {
+            width:100%;
+            padding:13px;
+            background:#1a3c5e;
+            color:white;
+            border:none;
+            border-radius:8px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:background .2s;
+        }
+        button:hover { background:#24527a; }
+        button:disabled { background:#aaa; cursor:not-allowed; }
+        .error {
+            color:#c0392b;
+            font-size:12px;
+            text-align:center;
+            margin-top:12px;
+            min-height:18px;
+        }
+        .footer {
+            text-align:center;
+            margin-top:24px;
+            font-size:11px;
+            color:#aaa;
+        }
+    </style>
+</head>
+<body>
+<div class="login-box">
+    <div class="logo">
+        <h1>Lee & Associates</h1>
+        <p>CRE Intelligence Dashboard</p>
+    </div>
+    <div class="divider"></div>
+    <label>Password</label>
+    <input
+        type="password"
+        id="password"
+        placeholder="Enter password"
+        onkeypress="if(event.key==='Enter')login()"
+        autofocus
+    />
+    <button id="login-btn" onclick="login()">Sign In</button>
+    <div class="error" id="error-msg"></div>
+    <div class="footer">For access contact your administrator</div>
+</div>
+
+<script>
+async function login() {
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('login-btn');
+    const error = document.getElementById('error-msg');
+
+    if (!password) {
+        error.textContent = 'Please enter a password';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+    error.textContent = '';
+
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            window.location.href = '/';
+        } else {
+            error.textContent = 'Incorrect password. Please try again.';
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+            document.getElementById('password').value = '';
+            document.getElementById('password').focus();
+        }
+    } catch(e) {
+        error.textContent = 'Connection error. Please try again.';
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+    }
+}
+</script>
+</body>
+</html>
