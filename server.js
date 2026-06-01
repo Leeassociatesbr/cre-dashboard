@@ -281,7 +281,7 @@ app.get('/map-data', async (req, res) => {
     const { north, south, east, west } = req.query;
     const hasBounds = north && south && east && west;
 
-    function addBounds(query, latCol='latitude', lngCol='longitude') {
+    function addBounds(query, latCol = 'latitude', lngCol = 'longitude') {
       if (!hasBounds) return query;
       return query
         .gte(latCol, parseFloat(south))
@@ -290,49 +290,121 @@ app.get('/map-data', async (req, res) => {
         .lte(lngCol, parseFloat(east));
     }
 
-    const [bSales, bLeases, dSales, dLeases, eSales] = await Promise.all([
+    const [bSales, bLeases, dSales, dLeases, eSales, lafSales, lafLeases] = await Promise.all([
       addBounds(supabase
         .from('buildout_sale_comps')
         .select('id, property_name, address, city, state, property_type, sale_price, sale_date, building_sf, photo_url, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null))
         .limit(2000),
+
       addBounds(supabase
         .from('buildout_lease_comps')
         .select('id, property_name, address, city, state, property_type, lease_rate, lease_date, building_sf, photo_url, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null))
         .limit(2000),
+
       addBounds(supabase
         .from('dealius_sale_comps')
         .select('id, property_name, address, city, state, property_type, sale_price, close_date, building_sf, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null))
         .limit(2000),
+
       addBounds(supabase
         .from('dealius_lease_comps')
         .select('id, property_name, address, city, state, property_type, effective_rate, commencement_date, building_sf, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null))
         .limit(2000),
+
       addBounds(supabase
         .from('elifin_sale_comps')
         .select('id, address, city, state, property_type, sale_price, sale_date, size_sf, latitude, longitude')
         .not('latitude', 'is', null)
         .not('longitude', 'is', null))
         .limit(2000),
+
+      addBounds(supabase
+        .from('Lafayette_sales_comps')
+        .select('id, address, city, state, zip, property_type, asking_price, building_sf, asking_ppsf, sold_cap_rate, date_sold, sold_price, sold_ppsf, pct_of_list_price, days_on_market, listing_company, listing_broker, notes, market, source, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null))
+        .limit(2000),
+
+      addBounds(supabase
+        .from('Lafayette_lease_comps')
+        .select('id, address, city, state, zip, property_type, asking_lease_rate, building_sf, asking_ppsf, lease_type, lease_term_months, date_available, date_leased, leased_ppsf, pct_of_list_price, days_on_market, listing_company, listing_broker, notes, market, source, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null))
+        .limit(2000),
     ]);
 
     const properties = [
-      ...(bSales.data  || []).map(p => ({ ...p, table:'buildout_sale_comps',  type:'Sale',  building_sf:p.building_sf })),
-      ...(bLeases.data || []).map(p => ({ ...p, table:'buildout_lease_comps', type:'Lease', building_sf:p.building_sf })),
-      ...(dSales.data  || []).map(p => ({ ...p, table:'dealius_sale_comps',   type:'Sale',  sale_date:p.close_date, building_sf:p.building_sf })),
-      ...(dLeases.data || []).map(p => ({ ...p, table:'dealius_lease_comps',  type:'Lease', lease_rate:p.effective_rate, lease_date:p.commencement_date, building_sf:p.building_sf })),
-      ...(eSales.data  || []).map(p => ({ ...p, table:'elifin_sale_comps',    type:'Sale',  building_sf:p.size_sf })),
+      ...(bSales.data || []).map(p => ({
+        ...p,
+        table: 'buildout_sale_comps',
+        type: 'Sale',
+        building_sf: p.building_sf
+      })),
+
+      ...(bLeases.data || []).map(p => ({
+        ...p,
+        table: 'buildout_lease_comps',
+        type: 'Lease',
+        building_sf: p.building_sf
+      })),
+
+      ...(dSales.data || []).map(p => ({
+        ...p,
+        table: 'dealius_sale_comps',
+        type: 'Sale',
+        sale_date: p.close_date,
+        building_sf: p.building_sf
+      })),
+
+      ...(dLeases.data || []).map(p => ({
+        ...p,
+        table: 'dealius_lease_comps',
+        type: 'Lease',
+        lease_rate: p.effective_rate,
+        lease_date: p.commencement_date,
+        building_sf: p.building_sf
+      })),
+
+      ...(eSales.data || []).map(p => ({
+        ...p,
+        table: 'elifin_sale_comps',
+        type: 'Sale',
+        building_sf: p.size_sf,
+        property_name: p.address
+      })),
+
+      ...(lafSales.data || []).map(p => ({
+        ...p,
+        table: 'Lafayette_sales_comps',
+        type: 'Sale',
+        sale_price: p.sold_price || p.asking_price,
+        sale_date: p.date_sold,
+        building_sf: p.building_sf,
+        property_name: p.address
+      })),
+
+      ...(lafLeases.data || []).map(p => ({
+        ...p,
+        table: 'Lafayette_lease_comps',
+        type: 'Lease',
+        lease_rate: p.asking_lease_rate || p.leased_ppsf || p.asking_ppsf,
+        lease_date: p.date_leased || p.date_available,
+        building_sf: p.building_sf,
+        property_name: p.address
+      })),
     ];
 
     res.json(properties);
   } catch (err) {
+    console.error('Map data error:', err);
     res.status(500).json({ error: err.message });
   }
 });

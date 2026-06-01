@@ -94,6 +94,8 @@ async function main() {
   await geocodeTable('dealius_sale_comps',  'address', 'city', 'state');
   await geocodeTable('dealius_lease_comps', 'address', 'city', 'state');
   await geocodeTable('elifin_sale_comps',   'address', 'city', 'state');
+await geocodeTable('Lafayette_sales_comps', 'address', 'city', 'state');
+await geocodeTable('Lafayette_lease_comps', 'address', 'city', 'state');
 
   console.log('\n✅ All done! Refresh your dashboard to see all properties on the map.');
 }
